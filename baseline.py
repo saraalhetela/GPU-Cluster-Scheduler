@@ -40,7 +40,7 @@ def compute_hourly_demand(jobs, episode_length=None):
         start_hour = max(0, int(np.floor(arrival)))
         end_hour = min(episode_length, int(np.ceil(deadline)))
         for h in range(start_hour, end_hour):
-            demand[h] += max_gpus
+            demand[h] += avg_gpus
     return demand
 
 
