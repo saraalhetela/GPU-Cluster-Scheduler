@@ -24,20 +24,18 @@ EPISODE_LENGTH = 24     # hours, hard cap safety backstop (mirrors EV project's 
 TOTAL_CLUSTER_GPUS = 32
 
 # --- reward shaping coefficients ---
-COST_COEF = 0.6  # bumped from 0.4 -- now safe to raise since cost penalty is
-                 # urgency-scaled (see COST_URGENCY_FLOOR below), so it no
-                 # longer competes flatly against SHAPING_COEF/UNMET_PENALTY_COEF
-                 # the way a flat higher COST_COEF would have. Still worth
-                 # sweeping 0.6 / 0.8 / 1.0 and checking deadline_success_rate_pct
-                 # doesn't regress below ~85%.
+COST_COEF = 0.45  # pulled back from 0.6 -- 0.6 combined with a 0.15 floor
+                  # dropped deadline_success_rate_pct to 75.0% (150/200
+                  # completed, 30 missed), worse than the flat-COST_COEF=0.4
+                  # baseline's 87.0%. Re-sweep from here: 0.45 / 0.5 / 0.55,
+                  # reject anything that takes success_rate below ~85%.
 
-COST_URGENCY_FLOOR = 0.15  # at max urgency_ratio (job in real trouble, no
-                            # slack left), cost penalty shrinks to this
-                            # fraction of COST_COEF -- lets the agent pay up to
-                            # finish without being punished for it. At zero
-                            # urgency (lots of slack), full COST_COEF applies,
-                            # so the agent has real incentive to wait for a
-                            # cheaper hour instead of paying peak price.
+COST_URGENCY_FLOOR = 0.35  # raised from 0.15 -- 0.15 let the agent get away
+                            # with near-zero cost sensitivity relief even at
+                            # moderate urgency, so it kept optimizing for cheap
+                            # hours too late into each job's window. 0.35 still
+                            # gives real savings at low urgency while backing
+                            # off cost-consciousness sooner as slack shrinks.
 
 SHAPING_COEF = 2.0       # dense per-step reward for making progress
 UNMET_PENALTY_COEF = 20  # terminal penalty per unmet GPU-hour (same value that
