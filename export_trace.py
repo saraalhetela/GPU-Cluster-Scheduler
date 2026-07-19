@@ -24,6 +24,7 @@ import config
 import data_preprocessing as dp
 from environment import ACTIONS
 from model import DuelingMLP
+from evaluate import _build_state, PRIORITY_RANK 
 
 PRIORITY_RANK = {"High": 0, "Medium": 1, "Low": 2}
 
@@ -97,21 +98,6 @@ def trace_priority(jobs, prices, total_gpus=None, episode_length=None):
     return trace
 
 
-def _build_state_vec(hour, price, job_progress, deadline_remaining, gpu_hours_remaining, cluster_utilization, priority):
-    h = hour % 24
-    hour_sin = np.sin(2 * np.pi * h / 24)
-    hour_cos = np.cos(2 * np.pi * h / 24)
-    urgency_ratio = float(
-        np.clip(gpu_hours_remaining / max(deadline_remaining, 0.5), 0.0, 5.0)
-    )
-    priority_rank = config.PRIORITY_RANK_VALUE[priority]
-    return np.array(
-        [hour_sin, hour_cos, price, job_progress, deadline_remaining,
-         gpu_hours_remaining, cluster_utilization, urgency_ratio, priority_rank],
-        dtype=np.float32,
-    )
-
-
 def trace_agent_shared_pool(model, jobs, prices, device="cpu", total_gpus=None, episode_length=None):
     """Mirrors evaluate.evaluate_agent_shared_pool() exactly."""
     model.eval()
@@ -157,7 +143,7 @@ def trace_agent_shared_pool(model, jobs, prices, device="cpu", total_gpus=None, 
                 deadline_remaining = max(0.0, s["deadline"] - hour)
                 background_demand = max(0.0, total_eligible_demand - s["max_gpus"])
                 cluster_util = float(np.clip(background_demand / total_gpus, 0.0, 1.0))
-                state_vecs.append(_build_state_vec(
+                state_vecs.append(_build_state(
                     hour, price, job_progress, deadline_remaining, s["remaining"], cluster_util, s["priority"]
                 ))
 
@@ -170,7 +156,7 @@ def trace_agent_shared_pool(model, jobs, prices, device="cpu", total_gpus=None, 
                 s = state[jid]
                 requests[jid] = min(ACTIONS[a], s["max_gpus"], s["remaining"])
 
-            order = sorted(eligible_ids, key=lambda jid: state[jid]["deadline"])
+            order = sorted(eligible_ids, key=lambda jid: (PRIORITY_RANK[state[jid]["priority"]], state[jid]["deadline"]))
             gpus_left = total_gpus
             for jid in order:
                 if gpus_left <= 0:
