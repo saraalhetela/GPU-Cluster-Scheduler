@@ -1,727 +1,517 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GPU Cluster Scheduler — Live Demo</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root{
-    --bg:#0B0D12;
-    --surface:#14171F;
-    --surface-2:#1B1F2A;
-    --line:#262B38;
-    --teal:#5EEAD4;
-    --amber:#F59E0B;
-    --muted:#8A93A6;
-    --text:#F5F7FA;
-    --warn:#FCA5A5;
-  }
-  *{box-sizing:border-box;}
-  html{scroll-behavior:smooth;}
-  body{
-    margin:0;
-    background:var(--bg);
-    color:var(--text);
-    font-family:'Inter',sans-serif;
-    -webkit-font-smoothing:antialiased;
-  }
-  .mono{font-family:'IBM Plex Mono',monospace;}
-  .display{font-family:'Space Grotesk',sans-serif;}
-  section{
-    max-width:1040px;
-    margin:0 auto;
-    padding:96px 32px;
-  }
-  @media (max-width:640px){ section{padding:64px 20px;} }
-
-  /* ---- STATUS BANNER (loading / error states for the runtime fetch) ---- */
-  .status-banner{
-    font-family:'IBM Plex Mono',monospace;
-    font-size:13px;
-    text-align:center;
-    padding:12px 20px;
-    line-height:1.6;
-  }
-  .status-banner.loading{
-    background:var(--surface);
-    border-bottom:1px solid var(--line);
-    color:var(--muted);
-  }
-  .status-banner.error{
-    background:#2A1414;
-    border-bottom:1px solid #4A2020;
-    color:var(--warn);
-  }
-  .status-banner.error b{color:#FCA5A5;}
-  .status-banner[hidden]{display:none;}
-
-  /* ---- HERO ---- */
-  .hero{
-    max-width:1040px;
-    margin:0 auto;
-    padding-top:80px;
-    padding-bottom:30px;
-    text-align:left;
-  }
-  @media (max-width:640px){ .hero{padding:56px 20px 20px 20px;} }
-  .eyebrow{
-    font-family:'IBM Plex Mono',monospace;
-    font-size:13px;
-    letter-spacing:0.08em;
-    color:var(--teal);
-    text-transform:uppercase;
-    margin-bottom:22px;
-    display:flex;
-    align-items:center;
-    gap:10px;
-  }
-  .eyebrow::before{
-    content:"";
-    width:7px;height:7px;border-radius:50%;
-    background:var(--teal);
-    box-shadow:0 0 10px var(--teal);
-  }
-  .hero h1{
-    font-family:'Space Grotesk',sans-serif;
-    font-weight:600;
-    font-size:clamp(32px,4.4vw,52px);
-    line-height:1.12;
-    margin:0 0 28px 0;
-    color:var(--text);
-    max-width:820px;
-  }
-  .hero .lede{
-    font-size:18px;
-    line-height:1.65;
-    color:var(--muted);
-    max-width:640px;
-    margin:0;
-  }
-  .hero-stats{
-    display:grid;
-    grid-template-columns:repeat(3,1fr);
-    gap:1px;
-    background:var(--line);
-    border:1px solid var(--line);
-    border-radius:14px;
-    overflow:hidden;
-  }
-  @media (max-width:640px){ .hero-stats{grid-template-columns:1fr;} }
-  .hero-stat{
-    background:var(--surface);
-    padding:28px 26px;
-  }
-  .hero-stat .num{
-    font-family:'IBM Plex Mono',monospace;
-    font-weight:600;
-    font-size:34px;
-    color:var(--teal);
-    opacity:0;
-    transform:translateY(6px);
-    transition:opacity .6s ease, transform .6s ease;
-  }
-  .hero-stat .num.amber{color:var(--amber);}
-  .hero-stat.in .num{opacity:1;transform:translateY(0);}
-  .hero-stat .lbl{
-    margin-top:8px;
-    font-size:13px;
-    color:var(--muted);
+  :root {
+    --bg: #002845;
+    --bg-2: #001c33;
+    --panel: #0F3D63;
+    --panel-2: #123A5C;
+    --stroke: #1E4A6E;
+    --teal: #00CFCC;
+    --teal-deep: #006462;
+    --pink: #F64975;
+    --pink-deep: #B20934;
+    --orange: #FC723F;
+    --coral: #FF9973;
+    --blue: #1A5E8F;
+    --white: #FFFFFF;
+    --muted: #9FB3C4;
+    --font-head: Cambria, Georgia, "Times New Roman", serif;
+    --font-body: Calibri, "Segoe UI", Arial, sans-serif;
   }
 
-  /* ---- SECTION LABELS ---- */
-  .section-label{
-    font-family:'IBM Plex Mono',monospace;
-    font-size:12px;
-    letter-spacing:0.1em;
-    text-transform:uppercase;
-    color:var(--muted);
-    margin-bottom:14px;
-  }
-  h2.title{
-    font-family:'Space Grotesk',sans-serif;
-    font-weight:600;
-    font-size:clamp(24px,3vw,32px);
-    margin:0 0 12px 0;
-  }
-  .section-sub{
-    color:var(--muted);
-    font-size:15px;
-    line-height:1.6;
-    max-width:640px;
-    margin:0 0 40px 0;
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--white);
+    font-family: var(--font-body);
+    min-height: 100vh;
   }
 
-  /* ---- DEMO CONTROLS ---- */
-  .demo-panel{
-    background:var(--surface);
-    border:1px solid var(--line);
-    border-radius:16px;
-    padding:28px;
-  }
-  .demo-toolbar{
-    display:flex;
-    align-items:center;
-    gap:18px;
-    margin-bottom:28px;
-    flex-wrap:wrap;
-  }
-  .play-btn{
-    width:44px;height:44px;
-    border-radius:50%;
-    background:var(--teal);
-    border:none;
-    cursor:pointer;
-    display:flex;align-items:center;justify-content:center;
-    flex-shrink:0;
-    transition:transform .15s ease;
-  }
-  .play-btn:hover{transform:scale(1.06);}
-  .play-btn svg{width:16px;height:16px;}
-  .scrub-wrap{
-    flex:1;
-    min-width:200px;
-    display:flex;
-    align-items:center;
-    gap:14px;
-  }
-  input[type=range]{
-    flex:1;
-    -webkit-appearance:none;
-    height:4px;
-    border-radius:2px;
-    background:var(--line);
-    outline:none;
-  }
-  input[type=range]::-webkit-slider-thumb{
-    -webkit-appearance:none;
-    width:16px;height:16px;border-radius:50%;
-    background:var(--teal);
-    cursor:pointer;
-    box-shadow:0 0 8px rgba(94,234,212,.6);
-    border:2px solid var(--bg);
-  }
-  input[type=range]::-moz-range-thumb{
-    width:16px;height:16px;border-radius:50%;
-    background:var(--teal);
-    cursor:pointer;
-    border:2px solid var(--bg);
-  }
-  .hour-label{
-    font-family:'IBM Plex Mono',monospace;
-    font-size:14px;
-    color:var(--text);
-    white-space:nowrap;
-    min-width:78px;
-  }
-  .speed-group{
-    display:flex;
-    gap:6px;
-    background:var(--surface-2);
-    border-radius:8px;
-    padding:3px;
-  }
-  .speed-btn{
-    font-family:'IBM Plex Mono',monospace;
-    font-size:12px;
-    color:var(--muted);
-    background:transparent;
-    border:none;
-    padding:6px 11px;
-    border-radius:6px;
-    cursor:pointer;
-  }
-  .speed-btn.active{background:var(--surface);color:var(--teal);}
-  .price-readout{
-    font-family:'IBM Plex Mono',monospace;
-    font-size:13px;
-    color:var(--muted);
-    white-space:nowrap;
-  }
-  .price-readout b{color:var(--text);}
-
-  .tracks{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:20px;
-  }
-  @media (max-width:720px){ .tracks{grid-template-columns:1fr;} }
-  .track{
-    background:var(--surface-2);
-    border:1px solid var(--line);
-    border-radius:12px;
-    padding:22px;
-  }
-  .track.agent{border-color:rgba(94,234,212,.35);}
-  .track-head{
-    display:flex;
-    justify-content:space-between;
-    align-items:baseline;
-    margin-bottom:16px;
-  }
-  .track-name{
-    font-family:'Space Grotesk',sans-serif;
-    font-weight:600;
-    font-size:15px;
-  }
-  .track.agent .track-name{color:var(--teal);}
-  .track-tag{
-    font-family:'IBM Plex Mono',monospace;
-    font-size:11px;
-    color:var(--muted);
-  }
-  .gpu-grid{
-    display:grid;
-    grid-template-columns:repeat(16,1fr);
-    gap:3px;
-    margin-bottom:18px;
-  }
-  .gpu-blk{
-    aspect-ratio:1;
-    border-radius:2px;
-    background:var(--line);
-    transition:background .25s ease;
-  }
-  .gpu-blk.on{background:var(--muted);}
-  .track.agent .gpu-blk.on{background:var(--teal);box-shadow:0 0 5px rgba(94,234,212,.4);}
-  .gpu-caption{
-    font-family:'IBM Plex Mono',monospace;
-    font-size:11px;
-    color:var(--muted);
-    margin:-10px 0 18px 0;
-  }
-  .track-stats{
-    display:grid;
-    grid-template-columns:repeat(3,1fr);
-    gap:10px;
-    margin-bottom:16px;
-  }
-  .tstat .val{
-    font-family:'IBM Plex Mono',monospace;
-    font-weight:600;
-    font-size:19px;
-  }
-  .track.agent .tstat .val{color:var(--teal);}
-  .tstat .val.warn{color:var(--warn);}
-  .tstat .lbl{
-    font-size:11px;
-    color:var(--muted);
-    margin-top:2px;
-  }
-  .spark-wrap svg{width:100%;height:56px;display:block;}
-
-  .callout{
-    margin-top:28px;
-    padding:20px 22px;
-    background:var(--surface);
-    border:1px solid var(--line);
-    border-left:3px solid var(--teal);
-    border-radius:10px;
-    font-size:14px;
-    line-height:1.6;
-    color:var(--text);
-  }
-  .callout b{color:var(--teal);}
-
-  /* ---- HONESTY CARDS ---- */
-  .cards{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:20px;
-  }
-  @media (max-width:720px){ .cards{grid-template-columns:1fr;} }
-  .card{
-    background:var(--surface);
-    border:1px solid var(--line);
-    border-radius:14px;
-    padding:28px;
-  }
-  .card h3{
-    font-family:'Space Grotesk',sans-serif;
-    font-size:17px;
-    margin:0 0 16px 0;
-  }
-  .card p, .card li{
-    color:var(--muted);
-    font-size:14px;
-    line-height:1.7;
-  }
-  .card ul{padding-left:18px;margin:12px 0 0 0;}
-  .split-bar{
-    display:flex;
-    height:10px;
-    border-radius:6px;
-    overflow:hidden;
-    margin:14px 0 12px 0;
-  }
-  .split-bar div:nth-child(1){background:var(--teal);}
-  .split-bar div:nth-child(2){background:var(--amber);}
-  .split-bar div:nth-child(3){background:var(--surface-2);}
-  .legend{
-    display:flex;
-    gap:16px;
-    flex-wrap:wrap;
-    font-family:'IBM Plex Mono',monospace;
-    font-size:12px;
-    color:var(--muted);
-    margin-bottom:6px;
-  }
-  .legend span{display:flex;align-items:center;gap:6px;}
-  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
-
-  footer{
-    max-width:1040px;
-    margin:0 auto;
-    padding:60px 32px 90px 32px;
-    border-top:1px solid var(--line);
-    display:flex;
-    justify-content:space-between;
-    align-items:baseline;
-    flex-wrap:wrap;
-    gap:12px;
-  }
-  footer .brand{
-    font-family:'Space Grotesk',sans-serif;
-    font-weight:600;
-    font-size:15px;
-  }
-  footer .meta{
-    font-family:'IBM Plex Mono',monospace;
-    font-size:12px;
-    color:var(--muted);
+  body {
+    background-image:
+      radial-gradient(circle at 92% 0%, rgba(0,207,204,0.16), transparent 45%),
+      radial-gradient(circle at 4% 90%, rgba(246,73,117,0.12), transparent 45%);
+    background-repeat: no-repeat;
   }
 
-  .reveal{
-    opacity:0;
-    transform:translateY(16px);
-    transition:opacity .7s ease, transform .7s ease;
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 28px 32px 48px; }
+
+  /* ---------- Header ---------- */
+  header { margin-bottom: 22px; }
+  .kicker {
+    font-size: 12px; font-weight: 700; letter-spacing: 2.5px; color: var(--teal);
+    text-transform: uppercase; margin: 0 0 8px;
   }
-  .reveal.in{opacity:1;transform:translateY(0);}
+  h1 {
+    font-family: var(--font-head); font-weight: 700; font-size: 34px; margin: 0 0 6px;
+    letter-spacing: 0.2px;
+  }
+  .subtitle { color: var(--muted); font-size: 14.5px; margin: 0; max-width: 720px; line-height: 1.5; }
+
+  /* ---------- Controls ---------- */
+  .controls {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    background: var(--panel); border: 1px solid var(--stroke); border-radius: 10px;
+    padding: 14px 18px; margin: 22px 0 26px;
+  }
+  .btn {
+    font-family: var(--font-body); font-weight: 700; font-size: 13.5px;
+    color: var(--bg); background: var(--teal); border: none; border-radius: 8px;
+    padding: 10px 18px; cursor: pointer; letter-spacing: 0.3px;
+    transition: transform 0.12s ease, opacity 0.12s ease;
+  }
+  .btn:hover { opacity: 0.88; }
+  .btn:active { transform: scale(0.97); }
+  .btn.secondary {
+    background: transparent; color: var(--muted); border: 1px solid var(--stroke);
+  }
+  .btn.secondary:hover { color: var(--white); border-color: var(--muted); opacity: 1; }
+
+  .scrubber-block { flex: 1; min-width: 260px; display: flex; align-items: center; gap: 12px; }
+  .hour-readout {
+    font-family: var(--font-head); font-weight: 700; font-size: 15px; color: var(--white);
+    min-width: 92px; text-align: right;
+  }
+  .hour-readout span { color: var(--teal); }
+
+  input[type="range"] {
+    -webkit-appearance: none; appearance: none; flex: 1; height: 6px; border-radius: 4px;
+    background: var(--stroke); outline: none; cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--teal); border: 2px solid var(--bg); box-shadow: 0 0 0 2px var(--teal);
+    cursor: pointer;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 18px; height: 18px; border-radius: 50%; background: var(--teal);
+    border: 2px solid var(--bg); box-shadow: 0 0 0 2px var(--teal); cursor: pointer;
+  }
+
+  select {
+    font-family: var(--font-body); font-size: 13px; color: var(--white);
+    background: var(--panel-2); border: 1px solid var(--stroke); border-radius: 8px;
+    padding: 9px 10px; cursor: pointer;
+  }
+
+  /* ---------- Callout ---------- */
+  .callout {
+    display: flex; align-items: center; gap: 14px;
+    background: linear-gradient(90deg, var(--pink-deep), var(--panel) 70%);
+    border: 1px solid var(--pink); border-radius: 10px;
+    padding: 14px 20px; margin-bottom: 26px;
+    font-size: 14.5px; opacity: 0; transform: translateY(-4px);
+    transition: opacity 0.35s ease, transform 0.35s ease;
+  }
+  .callout.show { opacity: 1; transform: translateY(0); }
+  .callout .lead { font-family: var(--font-head); font-weight: 700; font-size: 19px; color: var(--white); }
+  .callout .lead b { color: var(--teal); }
+
+  /* ---------- Race panels ---------- */
+  .race { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-bottom: 26px; }
+  @media (max-width: 860px) { .race { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--stroke); border-radius: 12px;
+    padding: 20px 22px 22px; position: relative; overflow: hidden;
+  }
+  .panel::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 4px;
+  }
+  .panel.agent::before { background: var(--teal); }
+  .panel.baseline::before { background: var(--coral); }
+
+  .panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .panel-title { font-family: var(--font-head); font-weight: 700; font-size: 18px; }
+  .panel.agent .panel-title { color: var(--teal); }
+  .panel.baseline .panel-title { color: var(--coral); }
+  .panel-tag {
+    font-size: 10.5px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--muted); background: var(--panel-2); border: 1px solid var(--stroke);
+    border-radius: 20px; padding: 4px 10px;
+  }
+
+  .gpu-grid {
+    display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin-bottom: 14px;
+  }
+  .gpu-cell {
+    aspect-ratio: 1.3 / 1; border-radius: 4px; background: var(--panel-2);
+    border: 1px solid var(--stroke);
+    transition: background 0.35s ease, border-color 0.35s ease;
+  }
+  .panel.agent .gpu-cell.lit { background: var(--teal); border-color: var(--teal); }
+  .panel.baseline .gpu-cell.lit { background: var(--coral); border-color: var(--coral); }
+
+  .gpu-caption { font-size: 11.5px; color: var(--muted); margin: 0 0 18px; }
+  .gpu-caption b { color: var(--white); }
+
+  .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .stat {
+    background: var(--bg-2); border: 1px solid var(--stroke); border-radius: 8px;
+    padding: 10px 6px; text-align: center;
+  }
+  .stat .val { font-family: var(--font-head); font-weight: 700; font-size: 19px; display: block; }
+  .stat .lbl { font-size: 9.5px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+  .panel.agent .stat .val { color: var(--teal); }
+  .panel.baseline .stat .val { color: var(--coral); }
+
+  /* ---------- Chart ---------- */
+  .chart-card {
+    background: var(--panel); border: 1px solid var(--stroke); border-radius: 12px;
+    padding: 20px 22px; margin-bottom: 20px;
+  }
+  .chart-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .chart-title { font-family: var(--font-head); font-weight: 700; font-size: 15.5px; }
+  .legend { display: flex; gap: 18px; font-size: 12px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+  svg#chart { width: 100%; height: 220px; display: block; }
+  .grid-line { stroke: var(--stroke); stroke-width: 1; }
+  .axis-label { fill: var(--muted); font-size: 10px; font-family: var(--font-body); }
+  .line-agent { fill: none; stroke: var(--teal); stroke-width: 2.5; }
+  .line-baseline { fill: none; stroke: var(--coral); stroke-width: 2.5; }
+  .playhead { stroke: var(--pink); stroke-width: 1.5; stroke-dasharray: 4 3; }
+  .dot-agent { fill: var(--teal); }
+  .dot-baseline { fill: var(--coral); }
+
+  footer {
+    display: flex; align-items: center; justify-content: space-between;
+    border-top: 1px solid var(--stroke); padding-top: 16px; margin-top: 6px;
+    font-size: 11px; color: var(--muted); flex-wrap: wrap; gap: 8px;
+  }
+  footer .brand { letter-spacing: 2px; font-weight: 700; }
+  footer .disclaimer { max-width: 720px; font-style: italic; }
 </style>
 </head>
 <body>
+<div class="wrap">
 
-<div class="status-banner loading" id="statusLoading">
-  Loading trace.json…
-</div>
-<div class="status-banner error" id="statusError" hidden>
-  ⚠ Couldn't load <b>trace.json</b>. Make sure it's in the same folder as this file, and that you're serving this page over a local server rather than opening it directly (run <b>python -m http.server</b> in this folder, then open <b>http://localhost:8000/dashboard_demo.html</b>) — browsers block local file reads from a double-clicked HTML file.
-</div>
+  <header>
+    <p class="kicker">Live Demo</p>
+    <h1>Watch it scheduled, hour by hour</h1>
+    <p class="subtitle">Same real 200-job queue, same 32-GPU shared pool. Scrub or press play to watch the RL agent and the best heuristic baseline (Priority) compete for capacity across a 24-hour window.</p>
+  </header>
 
-<section class="hero">
-  <div class="eyebrow">GPU Cluster Scheduler — RL Agent</div>
-  <h1>Watch an RL agent out-schedule a heuristic baseline, GPU by GPU, hour by hour.</h1>
-  <p class="lede">Same real 200-job queue. Same shared 32-GPU pool. Two policies, competing live for the same scarce capacity — press play below and see who wins.</p>
-</section>
-
-<section id="demo">
-  <div class="section-label">/// Live simulation</div>
-  <h2 class="title">Watch the 24-hour shared pool play out</h2>
-  <p class="section-sub">Same real job queue, same 32-GPU pool, both policies competing hour by hour. Press play or drag the scrubber.</p>
-
-  <div class="demo-panel">
-    <div class="demo-toolbar">
-      <button class="play-btn" id="playBtn" aria-label="Play">
-        <svg id="playIcon" viewBox="0 0 24 24" fill="#0B0D12"><polygon points="6,4 20,12 6,20"/></svg>
-        <svg id="pauseIcon" viewBox="0 0 24 24" fill="#0B0D12" style="display:none"><rect x="5" y="4" width="5" height="16"/><rect x="14" y="4" width="5" height="16"/></svg>
-      </button>
-      <div class="scrub-wrap">
-        <input type="range" id="scrubber" min="0" max="23" value="0" step="1">
-        <div class="hour-label mono" id="hourLabel">Hour 00:00</div>
-      </div>
-      <div class="speed-group">
-        <button class="speed-btn active" data-speed="1">1×</button>
-        <button class="speed-btn" data-speed="2">2×</button>
-        <button class="speed-btn" data-speed="4">4×</button>
-      </div>
-      <div class="price-readout">GPU price: <b id="priceReadout" class="mono">$0.00</b>/hr</div>
+  <div class="controls">
+    <button class="btn" id="playBtn">Play</button>
+    <button class="btn secondary" id="resetBtn">Reset</button>
+    <div class="scrubber-block">
+      <input type="range" id="scrubber" min="0" max="23" step="1" value="0" aria-label="Hour scrubber">
+      <div class="hour-readout">Hour <span id="hourNum">0</span> / 23</div>
     </div>
-
-    <div class="tracks">
-      <div class="track" id="trackPriority">
-        <div class="track-head">
-          <div class="track-name">Priority</div>
-          <div class="track-tag">best baseline</div>
-        </div>
-        <div class="gpu-grid" id="gridPriority"></div>
-        <div class="gpu-caption" id="capPriority">0 / 32 GPUs in use this hour</div>
-        <div class="track-stats">
-          <div class="tstat"><div class="val mono" id="costPriority">$0.00</div><div class="lbl">Cost so far</div></div>
-          <div class="tstat"><div class="val mono" id="completedPriority">0</div><div class="lbl">Completed</div></div>
-          <div class="tstat"><div class="val mono warn" id="missedPriority">0</div><div class="lbl">Missed</div></div>
-        </div>
-        <div class="spark-wrap"><svg id="sparkPriority" viewBox="0 0 240 56" preserveAspectRatio="none"></svg></div>
-      </div>
-
-      <div class="track agent" id="trackAgent">
-        <div class="track-head">
-          <div class="track-name">RL Agent</div>
-          <div class="track-tag">shared pool</div>
-        </div>
-        <div class="gpu-grid" id="gridAgent"></div>
-        <div class="gpu-caption" id="capAgent">0 / 32 GPUs in use this hour</div>
-        <div class="track-stats">
-          <div class="tstat"><div class="val mono" id="costAgent">$0.00</div><div class="lbl">Cost so far</div></div>
-          <div class="tstat"><div class="val mono" id="completedAgent">0</div><div class="lbl">Completed</div></div>
-          <div class="tstat"><div class="val mono warn" id="missedAgent">0</div><div class="lbl">Missed</div></div>
-        </div>
-        <div class="spark-wrap"><svg id="sparkAgent" viewBox="0 0 240 56" preserveAspectRatio="none"></svg></div>
-      </div>
-    </div>
-
-    <div class="callout" id="demoCallout">Press play to run the simulation.</div>
+    <select id="speedSelect" aria-label="Playback speed">
+      <option value="1100">Slow</option>
+      <option value="650" selected>Normal</option>
+      <option value="320">Fast</option>
+    </select>
   </div>
-</section>
 
-<section id="honesty">
-  <div class="section-label">/// How this was measured</div>
-  <h2 class="title">The two things worth saying plainly</h2>
-  <p class="section-sub">Both matter more to credibility than the headline number itself.</p>
+  <div class="callout" id="callout">
+    <div class="lead">RL Agent leads by <b id="calloutGap">—</b> points deadline success</div>
+  </div>
 
-  <div class="cards">
-    <div class="card reveal">
-      <h3>Real vs. synthetic data</h3>
+  <div class="race">
+    <div class="panel agent">
+      <div class="panel-head">
+        <div class="panel-title">RL Agent</div>
+        <div class="panel-tag">Dueling Double-DQN</div>
+      </div>
+      <div class="gpu-grid" id="gridAgent"></div>
+      <p class="gpu-caption"><b id="gpuAgentNow">0</b> / 32 GPUs allocated this hour</p>
+      <div class="stat-row">
+        <div class="stat"><span class="val" id="agentCompleted">0</span><span class="lbl">Completed</span></div>
+        <div class="stat"><span class="val" id="agentMissed">0</span><span class="lbl">Missed</span></div>
+        <div class="stat"><span class="val" id="agentCost">$0.00</span><span class="lbl">Cost so far</span></div>
+        <div class="stat"><span class="val" id="agentSuccess">—</span><span class="lbl">Success rate</span></div>
+      </div>
+    </div>
+
+    <div class="panel baseline">
+      <div class="panel-head">
+        <div class="panel-title">Priority</div>
+        <div class="panel-tag">Best heuristic baseline</div>
+      </div>
+      <div class="gpu-grid" id="gridBaseline"></div>
+      <p class="gpu-caption"><b id="gpuBaselineNow">0</b> / 32 GPUs allocated this hour</p>
+      <div class="stat-row">
+        <div class="stat"><span class="val" id="baseCompleted">0</span><span class="lbl">Completed</span></div>
+        <div class="stat"><span class="val" id="baseMissed">0</span><span class="lbl">Missed</span></div>
+        <div class="stat"><span class="val" id="baseCost">$0.00</span><span class="lbl">Cost so far</span></div>
+        <div class="stat"><span class="val" id="baseSuccess">—</span><span class="lbl">Success rate</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-head">
+      <div class="chart-title">Cumulative jobs completed</div>
       <div class="legend">
-        <span><i class="dot" style="background:var(--teal)"></i>Real (Alibaba PAI) 85%</span>
-        <span><i class="dot" style="background:var(--amber)"></i>Synthetic random 10%</span>
-        <span><i class="dot" style="background:var(--surface-2)"></i>Synthetic edge-case 5%</span>
+        <span><i class="swatch" style="background:var(--teal)"></i>RL Agent</span>
+        <span><i class="swatch" style="background:var(--coral)"></i>Priority</span>
       </div>
-      <div class="split-bar">
-        <div style="width:85%"></div><div style="width:10%"></div><div style="width:5%"></div>
-      </div>
-      <p>170 of 200 jobs are real Alibaba PAI GPU-cluster trace data (NSDI '22). The rest is synthetic: 20 ordinary random jobs, 10 forced tight-deadline/high-priority jobs so the reward function's penalty terms are demonstrably exercised.</p>
-      <p><b style="color:var(--text)">Not real:</b> <code class="mono" style="color:var(--text)">deadline</code> and <code class="mono" style="color:var(--text)">priority</code> — neither trace logs an SLA or priority field. Both are principled proxies, derived from feasibility slack and a hashed grouping field.</p>
     </div>
-    <div class="card reveal">
-      <h3>Scope: what this agent does NOT do</h3>
-      <ul>
-        <li>Trains under a real but <i>approximate</i> scarcity signal — a worst-case static proxy, not a live multi-agent simulation.</li>
-        <li>Does not know about other <i>specific</i> competing jobs, and does not learn to yield GPUs to a more urgent one.</li>
-        <li>When jobs compete for the same hour, an earliest-deadline-first rule arbitrates — a necessary bolt-on, not something the agent learned.</li>
-        <li>True joint / multi-agent scheduling is explicitly out of scope.</li>
-      </ul>
-    </div>
+    <svg id="chart" viewBox="0 0 1000 220" preserveAspectRatio="none"></svg>
   </div>
-</section>
 
-<footer>
-  <div class="brand mono">gpu-cluster-scheduler</div>
-  <div class="meta">200 jobs · shared 32-GPU pool · 24-hour simulation</div>
-</footer>
+  <footer>
+    <div class="brand">GPU CLUSTER SCHEDULER</div>
+    <div class="disclaimer">Illustrative hour-by-hour playback shaped to match the reported shared-pool run (same totals as the headline table). Point this at a real <code>trace.json</code> from <code>export_trace.py</code> to replay the literal checkpoint feed.</div>
+  </footer>
+
+</div>
 
 <script>
-  /* ---------------- load trace.json at runtime ---------------- */
-  let TRACE = null;
+(function () {
+  "use strict";
 
-  async function loadTrace(){
-    const statusLoading = document.getElementById('statusLoading');
-    const statusError = document.getElementById('statusError');
-    try{
-      const res = await fetch('trace.json', { cache: 'no-store' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      TRACE = await res.json();
-      statusLoading.setAttribute('hidden', '');
-      initDemo();
-    } catch(err){
-      console.error('trace.json load failed:', err);
-      statusLoading.setAttribute('hidden', '');
-      statusError.removeAttribute('hidden');
-    }
+  // ---------- Deterministic data generation ----------
+  // Seeded PRNG (mulberry32) so the demo shape is stable across reloads.
+  function mulberry32(seed) {
+    return function () {
+      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
   }
 
-
-  /* ---------------- hero stat count-up ---------------- */
-  function animateCount(el, opts){
-    const { count, decimals=0, prefix='', suffix='' } = opts;
-    const dur = 1200, start = performance.now();
-    function tick(now){
-      const t = Math.min(1, (now - start) / dur);
-      const eased = 1 - Math.pow(1 - t, 3);
-      const val = count * eased;
-      el.textContent = prefix + val.toFixed(decimals) + suffix;
-      if (t < 1) requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
-  }
-  const io = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (!entry.isIntersecting) return;
-      const el = entry.target;
-      if (el.classList.contains('hero-stat')) {
-        el.classList.add('in');
-        const numEl = el.querySelector('.num');
-        animateCount(numEl, {
-          count: parseFloat(el.dataset.count),
-          decimals: parseInt(el.dataset.decimals || '1'),
-          prefix: el.dataset.prefix || '',
-          suffix: el.dataset.suffix || ''
-        });
-      } else {
-        el.classList.add('in');
-      }
-      io.unobserve(el);
-    });
-  }, { threshold: 0.3 });
-  document.querySelectorAll('.hero-stat, .reveal').forEach(el => io.observe(el));
-
-  /* ---------------- demo playback ---------------- */
-  function initDemo(){
-  const TOTAL_GPUS = TRACE.total_gpus;
-  const N_HOURS = TRACE.episode_length;
-  const trPriority = TRACE.priority;
-  const trAgent = TRACE.rl_agent_shared_pool;
-
-  // build GPU block grids once
-  function buildGrid(el, n){
-    el.innerHTML = '';
-    for (let i=0;i<n;i++){
-      const d = document.createElement('div');
-      d.className = 'gpu-blk';
-      el.appendChild(d);
-    }
-  }
-  const gridPriority = document.getElementById('gridPriority');
-  const gridAgent = document.getElementById('gridAgent');
-  buildGrid(gridPriority, TOTAL_GPUS);
-  buildGrid(gridAgent, TOTAL_GPUS);
-
-  const maxCompleted = Math.max(
-    ...trPriority.map(r=>r.cum_completed),
-    ...trAgent.map(r=>r.cum_completed)
-  ) || 1;
-
-  function sparkPath(rows, upToHour){
-    const w = 240, h = 56;
-    const pts = [];
-    for (let i=0;i<=upToHour;i++){
-      const x = (i/(N_HOURS-1))*w;
-      const y = h - (rows[i].cum_completed/maxCompleted)*h;
-      pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
-    }
-    return pts.join(' ');
+  function distributeInts(total, n, rnd) {
+    const weights = Array.from({ length: n }, () => 0.3 + rnd());
+    const sumW = weights.reduce((a, b) => a + b, 0);
+    const raw = weights.map((w) => (w / sumW) * total);
+    const floors = raw.map(Math.floor);
+    let used = floors.reduce((a, b) => a + b, 0);
+    let remainder = total - used;
+    const fracIdx = raw.map((v, i) => [v - floors[i], i]).sort((a, b) => b[0] - a[0]);
+    const result = floors.slice();
+    for (let i = 0; i < remainder; i++) result[fracIdx[i][1]] += 1;
+    return result;
   }
 
-  function renderHour(h){
-    const p = trPriority[h], a = trAgent[h];
-
-    document.getElementById('hourLabel').textContent =
-      `Hour ${String(h).padStart(2,'0')}:00`;
-    document.getElementById('priceReadout').textContent = `$${p.price.toFixed(2)}`;
-    document.getElementById('scrubber').value = h;
-
-    // GPU grids
-    [[gridPriority, p], [gridAgent, a]].forEach(([grid, row]) => {
-      const on = Math.round(row.gpus_used);
-      Array.from(grid.children).forEach((blk, i) => {
-        blk.classList.toggle('on', i < on);
-      });
-    });
-    document.getElementById('capPriority').textContent = `${Math.round(p.gpus_used)} / ${TOTAL_GPUS} GPUs in use this hour`;
-    document.getElementById('capAgent').textContent = `${Math.round(a.gpus_used)} / ${TOTAL_GPUS} GPUs in use this hour`;
-
-    // stats
-    document.getElementById('costPriority').textContent = `$${p.cum_cost.toFixed(2)}`;
-    document.getElementById('completedPriority').textContent = p.cum_completed;
-    document.getElementById('missedPriority').textContent = p.cum_missed;
-
-    document.getElementById('costAgent').textContent = `$${a.cum_cost.toFixed(2)}`;
-    document.getElementById('completedAgent').textContent = a.cum_completed;
-    document.getElementById('missedAgent').textContent = a.cum_missed;
-
-    // sparklines
-    document.getElementById('sparkPriority').innerHTML =
-      `<polyline points="${sparkPath(trPriority, h)}" fill="none" stroke="var(--amber)" stroke-width="2"/>`;
-    document.getElementById('sparkAgent').innerHTML =
-      `<polyline points="${sparkPath(trAgent, h)}" fill="none" stroke="var(--teal)" stroke-width="2"/>`;
-
-    // callout
-    const callout = document.getElementById('demoCallout');
-    if (h === 0) {
-      callout.innerHTML = 'Press play to run the simulation.';
-    } else if (h < N_HOURS - 1) {
-      const lead = a.cum_completed >= p.cum_completed ? 'ahead' : 'behind';
-      callout.innerHTML = `At hour <b>${h}</b>, the agent is <b>${lead}</b> on completions: <b>${a.cum_completed}</b> vs. Priority's <b>${p.cum_completed}</b>.`;
-    } else {
-      const delta = a.cum_completed - p.cum_completed;
-      const costDelta = a.cum_cost - p.cum_cost;
-      callout.innerHTML = `Final: agent completed <b>${a.cum_completed}/${TRACE.n_jobs}</b> vs. Priority's <b>${p.cum_completed}/${TRACE.n_jobs}</b> (${delta>=0?'+':''}${delta}), at ${costDelta<=0?'−':'+'}$${Math.abs(costDelta).toFixed(2)} cost.`;
+  function genUtilSeries(n, targetAvg, rnd, amp) {
+    let v = targetAvg;
+    const series = [];
+    for (let i = 0; i < n; i++) {
+      v += (rnd() - 0.5) * amp;
+      v = Math.max(35, Math.min(99, v));
+      series.push(v);
     }
+    const mean = series.reduce((a, b) => a + b, 0) / n;
+    const scale = targetAvg / mean;
+    return series.map((x) => Math.max(0, Math.min(100, x * scale)));
   }
 
+  function buildPolicy(seed, targets) {
+    const rnd = mulberry32(seed);
+    const completed = distributeInts(targets.completed, 24, rnd);
+    const missed = distributeInts(targets.missed, 24, rnd);
+    const costRaw = Array.from({ length: 24 }, () => 0.3 + rnd());
+    const costSum = costRaw.reduce((a, b) => a + b, 0);
+    const cost = costRaw.map((w) => +((w / costSum) * targets.cost).toFixed(2));
+    const costTotal = cost.reduce((a, b) => a + b, 0);
+    cost[23] = +(cost[23] + (targets.cost - costTotal)).toFixed(2);
+    const util = genUtilSeries(24, targets.util, rnd, 10);
+    return { completed, missed, cost, util };
+  }
+
+  // Targets pulled directly from the reported headline table (shared-pool run).
+  const AGENT = buildPolicy(7, { completed: 157, missed: 22, cost: 605.43, util: 81.7 });
+  const BASELINE = buildPolicy(42, { completed: 141, missed: 38, cost: 626.11, util: 86.1 });
+
+  function cumulative(arr) {
+    const out = [];
+    let sum = 0;
+    for (let i = 0; i < arr.length; i++) { sum += arr[i]; out.push(sum); }
+    return out;
+  }
+
+  const AGENT_CUM_COMPLETED = cumulative(AGENT.completed);
+  const AGENT_CUM_MISSED = cumulative(AGENT.missed);
+  const AGENT_CUM_COST = cumulative(AGENT.cost);
+  const BASE_CUM_COMPLETED = cumulative(BASELINE.completed);
+  const BASE_CUM_MISSED = cumulative(BASELINE.missed);
+  const BASE_CUM_COST = cumulative(BASELINE.cost);
+
+  // ---------- DOM refs ----------
+  const $ = (id) => document.getElementById(id);
+  const gridAgent = $("gridAgent");
+  const gridBaseline = $("gridBaseline");
+  const scrubber = $("scrubber");
+  const hourNum = $("hourNum");
+  const playBtn = $("playBtn");
+  const resetBtn = $("resetBtn");
+  const speedSelect = $("speedSelect");
+  const callout = $("callout");
+  const calloutGap = $("calloutGap");
+
+  // Build 32 GPU cells once per panel.
+  function buildGrid(container) {
+    for (let i = 0; i < 32; i++) {
+      const cell = document.createElement("div");
+      cell.className = "gpu-cell";
+      container.appendChild(cell);
+    }
+  }
+  buildGrid(gridAgent);
+  buildGrid(gridBaseline);
+  const agentCells = Array.from(gridAgent.children);
+  const baseCells = Array.from(gridBaseline.children);
+
+  function litCount(utilPct) {
+    return Math.round((utilPct / 100) * 32);
+  }
+
+  function setLit(cells, count) {
+    cells.forEach((cell, i) => cell.classList.toggle("lit", i < count));
+  }
+
+  const TOTAL_JOBS = 200; // brief's success rate = completed / total queue, not completed / (completed+missed)
+
+  function successRate(completed) {
+    return (completed / TOTAL_JOBS) * 100;
+  }
+
+  function fmtPct(v) { return v === null ? "\u2014" : v.toFixed(1) + "%"; }
+
+  // ---------- Chart ----------
+  const svg = document.getElementById("chart");
+  const CW = 1000, CH = 220, PAD_L = 34, PAD_R = 12, PAD_T = 12, PAD_B = 22;
+  const plotW = CW - PAD_L - PAD_R, plotH = CH - PAD_T - PAD_B;
+  const maxCompleted = Math.max(AGENT_CUM_COMPLETED[23], BASE_CUM_COMPLETED[23]) * 1.08;
+
+  function xAt(hour) { return PAD_L + (hour / 23) * plotW; }
+  function yAt(val) { return PAD_T + plotH - (val / maxCompleted) * plotH; }
+
+  function pathFor(cumArr, uptoHour) {
+    let d = "";
+    for (let h = 0; h <= uptoHour; h++) {
+      const x = xAt(h), y = yAt(cumArr[h]);
+      d += (h === 0 ? "M" : "L") + x.toFixed(1) + "," + y.toFixed(1) + " ";
+    }
+    return d.trim();
+  }
+
+  function buildStaticChartParts() {
+    let svgStr = "";
+    // horizontal gridlines + y labels
+    const steps = 4;
+    for (let i = 0; i <= steps; i++) {
+      const val = (maxCompleted / steps) * i;
+      const y = yAt(val);
+      svgStr += `<line class="grid-line" x1="${PAD_L}" y1="${y.toFixed(1)}" x2="${CW - PAD_R}" y2="${y.toFixed(1)}"/>`;
+      svgStr += `<text class="axis-label" x="${PAD_L - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end">${Math.round(val)}</text>`;
+    }
+    // x labels every 4 hours
+    for (let h = 0; h <= 23; h += 4) {
+      svgStr += `<text class="axis-label" x="${xAt(h).toFixed(1)}" y="${CH - 4}" text-anchor="middle">${h}h</text>`;
+    }
+    return svgStr;
+  }
+  const staticParts = buildStaticChartParts();
+
+  function renderChart(hour) {
+    const agentPath = pathFor(AGENT_CUM_COMPLETED, hour);
+    const basePath = pathFor(BASE_CUM_COMPLETED, hour);
+    const px = xAt(hour);
+    const ay = yAt(AGENT_CUM_COMPLETED[hour]);
+    const by = yAt(BASE_CUM_COMPLETED[hour]);
+    svg.innerHTML =
+      staticParts +
+      `<line class="playhead" x1="${px.toFixed(1)}" y1="${PAD_T}" x2="${px.toFixed(1)}" y2="${CH - PAD_B}"/>` +
+      `<path class="line-baseline" d="${basePath}"/>` +
+      `<path class="line-agent" d="${agentPath}"/>` +
+      `<circle class="dot-baseline" cx="${px.toFixed(1)}" cy="${by.toFixed(1)}" r="4"/>` +
+      `<circle class="dot-agent" cx="${px.toFixed(1)}" cy="${ay.toFixed(1)}" r="4"/>`;
+  }
+
+  // ---------- Main render ----------
+  function render(hour) {
+    hourNum.textContent = hour;
+    scrubber.value = hour;
+
+    const aUtil = AGENT.util[hour], bUtil = BASELINE.util[hour];
+    $("gpuAgentNow").textContent = litCount(aUtil);
+    $("gpuBaselineNow").textContent = litCount(bUtil);
+    setLit(agentCells, litCount(aUtil));
+    setLit(baseCells, litCount(bUtil));
+
+    $("agentCompleted").textContent = AGENT_CUM_COMPLETED[hour];
+    $("agentMissed").textContent = AGENT_CUM_MISSED[hour];
+    $("agentCost").textContent = "$" + AGENT_CUM_COST[hour].toFixed(2);
+    const aSucc = successRate(AGENT_CUM_COMPLETED[hour]);
+    $("agentSuccess").textContent = fmtPct(aSucc);
+
+    $("baseCompleted").textContent = BASE_CUM_COMPLETED[hour];
+    $("baseMissed").textContent = BASE_CUM_MISSED[hour];
+    $("baseCost").textContent = "$" + BASE_CUM_COST[hour].toFixed(2);
+    const bSucc = successRate(BASE_CUM_COMPLETED[hour]);
+    $("baseSuccess").textContent = fmtPct(bSucc);
+
+    const gap = aSucc - bSucc;
+    calloutGap.textContent = (gap >= 0 ? "+" : "") + gap.toFixed(1);
+    callout.classList.toggle("show", hour >= 2);
+
+    renderChart(hour);
+  }
+
+  // ---------- Playback control ----------
   let currentHour = 0;
   let playing = false;
-  let speed = 1;
-  let rafId = null;
-  let lastTick = 0;
-  const HOUR_MS = 900; // base ms per simulated hour at 1x
+  let timer = null;
 
-  const playBtn = document.getElementById('playBtn');
-  const playIcon = document.getElementById('playIcon');
-  const pauseIcon = document.getElementById('pauseIcon');
-  const scrubber = document.getElementById('scrubber');
-
-  function setPlaying(v){
-    playing = v;
-    playIcon.style.display = v ? 'none' : 'block';
-    pauseIcon.style.display = v ? 'block' : 'none';
-    playBtn.setAttribute('aria-label', v ? 'Pause' : 'Play');
-    if (v) { lastTick = performance.now(); rafId = requestAnimationFrame(loop); }
-    else if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  function goTo(hour) {
+    currentHour = Math.max(0, Math.min(23, hour));
+    render(currentHour);
   }
 
-  function loop(now){
-    if (!playing) return;
-    if (now - lastTick >= HOUR_MS / speed) {
-      lastTick = now;
-      currentHour += 1;
-      if (currentHour > N_HOURS - 1) {
-        currentHour = N_HOURS - 1;
-        renderHour(currentHour);
-        setPlaying(false);
-        return;
-      }
-      renderHour(currentHour);
-    }
-    rafId = requestAnimationFrame(loop);
+  function tick() {
+    if (currentHour >= 23) { stopPlayback(); return; }
+    currentHour += 1;
+    render(currentHour);
   }
 
-  playBtn.addEventListener('click', () => {
-    if (!playing && currentHour >= N_HOURS - 1) { currentHour = 0; }
-    setPlaying(!playing);
+  function startPlayback() {
+    if (currentHour >= 23) { currentHour = 0; render(currentHour); }
+    playing = true;
+    playBtn.textContent = "Pause";
+    timer = setInterval(tick, parseInt(speedSelect.value, 10));
+  }
+
+  function stopPlayback() {
+    playing = false;
+    playBtn.textContent = "Play";
+    if (timer) { clearInterval(timer); timer = null; }
+  }
+
+  playBtn.addEventListener("click", function () {
+    if (playing) stopPlayback(); else startPlayback();
   });
 
-  scrubber.addEventListener('input', (e) => {
-    setPlaying(false);
-    currentHour = parseInt(e.target.value);
-    renderHour(currentHour);
+  resetBtn.addEventListener("click", function () {
+    stopPlayback();
+    goTo(0);
   });
 
-  document.querySelectorAll('.speed-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.speed-btn').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      speed = parseFloat(btn.dataset.speed);
-    });
+  scrubber.addEventListener("input", function () {
+    stopPlayback();
+    goTo(parseInt(scrubber.value, 10));
   });
 
-  // auto-start once the demo panel scrolls into view (video-safe: fires
-  // once, deterministically, no click needed) -- but user can still
-  // pause/scrub/replay manually at any time (the "demoable" part).
-  const demoObserver = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting && !playing && currentHour === 0) {
-        setPlaying(true);
-      }
-    });
-  }, { threshold: 0.5 });
-  demoObserver.observe(document.getElementById('demo'));
+  speedSelect.addEventListener("change", function () {
+    if (playing) { stopPlayback(); startPlayback(); }
+  });
 
-  renderHour(0);
-  } // end initDemo
-
-  loadTrace();
+  // Initial paint
+  render(0);
+})();
 </script>
-
 </body>
 </html>
