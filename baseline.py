@@ -28,28 +28,15 @@ PRIORITY_RANK = {"High": 0, "Medium": 1, "Low": 2}  # lower rank = served first
 
 
 def compute_hourly_demand(jobs, episode_length=None):
-    """
-    Per-hour WORST-CASE total GPU demand across `jobs`: for each hour, the
-    sum of max_gpus over every job that has arrived and not yet hit its
-    deadline (arrival_time <= hour < deadline), assuming none of them have
-    finished early. A static, cheaply-precomputable proxy for "how
-    contended is the cluster around this time."
-
-    This is the real-scarcity signal that replaces GPUClusterEnv's old
-    purely-synthetic cluster_utilization feature during training -- it's
-    an approximation (it doesn't know which jobs actually finish early),
-    not a live simulation, which is exactly why it's cheap enough to
-    precompute once per job set rather than re-simulate every episode.
-
-    Returns a numpy array of length `episode_length` (index = absolute
-    hour 0..episode_length-1).
-    """
     episode_length = episode_length or config.EPISODE_LENGTH
     demand = np.zeros(episode_length, dtype=np.float64)
     for j in jobs:
         arrival = float(j["arrival_time"])
         deadline = float(j["deadline"])
-        max_gpus = float(j["max_gpus"])
+        duration = max(deadline - arrival, 0.01)
+        # average concurrent GPU need, not peak -- max_gpus is a ceiling the
+        # job is *allowed* to request, not what it needs for its full window
+        avg_gpus = float(j["gpu_hours_required"]) / duration
         start_hour = max(0, int(np.floor(arrival)))
         end_hour = min(episode_length, int(np.ceil(deadline)))
         for h in range(start_hour, end_hour):
