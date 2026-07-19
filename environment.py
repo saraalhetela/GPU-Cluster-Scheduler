@@ -149,11 +149,9 @@ class GPUClusterEnv:
         self.done = job_complete or past_deadline or length_cap_hit
 
         if self.done and not job_complete:
-            # deadline missed (or length-cap safety backstop triggered) --
-            # terminal penalty on whatever GPU-hours are still unmet,
-            # same treatment regardless of which condition tripped it.
-            reward -= config.UNMET_PENALTY_COEF * self.gpu_hours_remaining
-
+            mult = config.PRIORITY_PENALTY_MULT[self.job["priority"]]
+            reward -= config.UNMET_PENALTY_COEF * mult * self.gpu_hours_remaining
+            
         info = {
             "gpu_price": gpu_price_now,
             "gpus_allocated": gpus_allocated,
@@ -192,17 +190,10 @@ class GPUClusterEnv:
         urgency_ratio = float(
             np.clip(self.gpu_hours_remaining / max(deadline_remaining, 0.5), 0.0, 5.0)
         )
+        priority_rank = config.PRIORITY_RANK_VALUE[self.job["priority"]]
         state = np.array(
-            [
-                hour_sin,
-                hour_cos,
-                gpu_price,
-                self.job_progress,
-                deadline_remaining,
-                self.gpu_hours_remaining,
-                cluster_utilization,
-                urgency_ratio,
-            ],
+            [hour_sin, hour_cos, gpu_price, self.job_progress, deadline_remaining,
+             self.gpu_hours_remaining, cluster_utilization, urgency_ratio, priority_rank],
             dtype=np.float32,
         )
         return state
