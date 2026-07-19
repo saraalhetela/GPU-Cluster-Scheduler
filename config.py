@@ -42,8 +42,13 @@ COST_URGENCY_FLOOR = 0.35  # raised from 0.15 -- 0.15 let the agent get away
                             # off cost-consciousness sooner as slack shrinks.
 
 SHAPING_COEF = 2.0       # dense per-step reward for making progress
-UNMET_PENALTY_COEF = 20  # terminal penalty per unmet GPU-hour (same value that
-                          # worked for the EV project's unmet_energy penalty)
+UNMET_PENALTY_COEF = 20  # base penalty per unmet GPU-hour
+PRIORITY_PENALTY_MULT = {"High": 1.6, "Medium": 1.0, "Low": 0.6}  # scales
+                          # UNMET_PENALTY_COEF -- missing a High-priority
+                          # deadline should hurt noticeably more than missing
+                          # a Low-priority one, otherwise priority_rank in the
+                          # state is visible but the agent has no incentive
+                          # to act on it
 IDLE_PENALTY_COEF = 0.5  # penalty per step the job is allocated 0 GPUs
                           # while incomplete and not yet at its deadline
 
