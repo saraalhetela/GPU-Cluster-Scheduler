@@ -118,9 +118,20 @@ class GPUClusterEnv:
         gpu_hours_used = min(float(gpus_allocated), self.gpu_hours_remaining)
         progress_delta = gpu_hours_used / self.gpu_hours_required if self.gpu_hours_required > 0 else 0.0
 
+        # urgency BEFORE this step's updates -- how much slack the job has
+        # right now, same formula _get_state() uses for urgency_ratio.
+        deadline_remaining_now = max(0.0, self.deadline - self.hour)
+        urgency_now = float(
+            np.clip(self.gpu_hours_remaining / max(deadline_remaining_now, 0.5), 0.0, 5.0)
+        )
+        # 1.0 (full cost sensitivity) at zero urgency, tapering linearly down
+        # to COST_URGENCY_FLOOR at max clipped urgency (5.0) -- lets the agent
+        # be economical when it has time, and pay up without penalty when it doesn't.
+        cost_scale = 1.0 - (1.0 - config.COST_URGENCY_FLOOR) * (urgency_now / 5.0)
+
         # --- reward terms (matches Master Project Definition's formula) ---
         cost = gpu_price_now * gpu_hours_used
-        reward -= config.COST_COEF * cost
+        reward -= config.COST_COEF * cost_scale * cost
         reward += config.SHAPING_COEF * progress_delta
         if gpus_allocated == 0 and self.job_progress < 1.0:
             reward -= config.IDLE_PENALTY_COEF
