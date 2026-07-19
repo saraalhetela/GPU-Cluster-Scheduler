@@ -272,83 +272,6 @@
 (function () {
   "use strict";
 
-  // ---------- Deterministic data generation ----------
-  // Seeded PRNG (mulberry32) so the demo shape is stable across reloads.
-  function mulberry32(seed) {
-    return function () {
-      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
-      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-
-  function distributeInts(total, n, rnd) {
-    const weights = Array.from({ length: n }, () => 0.3 + rnd());
-    const sumW = weights.reduce((a, b) => a + b, 0);
-    const raw = weights.map((w) => (w / sumW) * total);
-    const floors = raw.map(Math.floor);
-    let used = floors.reduce((a, b) => a + b, 0);
-    let remainder = total - used;
-    const fracIdx = raw.map((v, i) => [v - floors[i], i]).sort((a, b) => b[0] - a[0]);
-    const result = floors.slice();
-    for (let i = 0; i < remainder; i++) result[fracIdx[i][1]] += 1;
-    return result;
-  }
-
-  function genUtilSeries(n, targetAvg, rnd, amp) {
-    let v = targetAvg;
-    const series = [];
-    for (let i = 0; i < n; i++) {
-      v += (rnd() - 0.5) * amp;
-      v = Math.max(35, Math.min(99, v));
-      series.push(v);
-    }
-    const mean = series.reduce((a, b) => a + b, 0) / n;
-    const scale = targetAvg / mean;
-    return series.map((x) => Math.max(0, Math.min(100, x * scale)));
-  }
-
-  function buildPolicy(seed, targets) {
-    const rnd = mulberry32(seed);
-    const completed = distributeInts(targets.completed, 24, rnd);
-    const missed = distributeInts(targets.missed, 24, rnd);
-    const costRaw = Array.from({ length: 24 }, () => 0.3 + rnd());
-    const costSum = costRaw.reduce((a, b) => a + b, 0);
-    const cost = costRaw.map((w) => +((w / costSum) * targets.cost).toFixed(2));
-    const costTotal = cost.reduce((a, b) => a + b, 0);
-    cost[23] = +(cost[23] + (targets.cost - costTotal)).toFixed(2);
-    const util = genUtilSeries(24, targets.util, rnd, 10);
-    return { completed, missed, cost, util };
-  }
-
-
-  let AGENT_CUM_COMPLETED, AGENT_CUM_MISSED, AGENT_CUM_COST, AGENT_UTIL;
-  let BASE_CUM_COMPLETED, BASE_CUM_MISSED, BASE_CUM_COST, BASE_UTIL;
-
-  fetch('trace.json?t=' + Date.now())
-    .then(r => r.json())
-    .then(data => {
-      // adapt these field names to match export_trace.py's actual trace.json
-      // structure -- inspect one output file to confirm the real keys
-      AGENT_CUM_COMPLETED = data.rl_agent_shared_pool.map(h => h.cum_completed);
-      AGENT_CUM_MISSED   = data.rl_agent_shared_pool.map(h => h.cum_missed);
-      AGENT_CUM_COST     = data.rl_agent_shared_pool.map(h => h.cum_cost);
-      BASE_CUM_COMPLETED  = data.priority.map(h => h.cum_completed);
-      BASE_CUM_MISSED    = data.priority.map(h => h.cum_missed);
-      BASE_CUM_COST      = data.priority.map(h => h.cum_cost);
-      render(0);
-    });
-
-  function cumulative(arr) {
-    const out = [];
-    let sum = 0;
-    for (let i = 0; i < arr.length; i++) { sum += arr[i]; out.push(sum); }
-    return out;
-  }
-
-
-  // ---------- DOM refs ----------
   const $ = (id) => document.getElementById(id);
   const gridAgent = $("gridAgent");
   const gridBaseline = $("gridBaseline");
@@ -359,8 +282,8 @@
   const speedSelect = $("speedSelect");
   const callout = $("callout");
   const calloutGap = $("calloutGap");
+  const svg = document.getElementById("chart");
 
-  // Build 32 GPU cells once per panel.
   function buildGrid(container) {
     for (let i = 0; i < 32; i++) {
       const cell = document.createElement("div");
@@ -373,29 +296,22 @@
   const agentCells = Array.from(gridAgent.children);
   const baseCells = Array.from(gridBaseline.children);
 
-  function litCount(utilPct) {
-    return Math.round((utilPct / 100) * 32);
-  }
-
   function setLit(cells, count) {
     cells.forEach((cell, i) => cell.classList.toggle("lit", i < count));
   }
 
-  const TOTAL_JOBS = 200; // brief's success rate = completed / total queue, not completed / (completed+missed)
-
-  function successRate(completed) {
-    return (completed / TOTAL_JOBS) * 100;
-  }
-
   function fmtPct(v) { return v === null ? "\u2014" : v.toFixed(1) + "%"; }
 
-  // ---------- Chart ----------
-  const svg = document.getElementById("chart");
+  // Populated once trace.json loads.
+  let TOTAL_JOBS, MAX_HOUR;
+  let AGENT_CUM_COMPLETED, AGENT_CUM_MISSED, AGENT_CUM_COST, AGENT_GPUS_USED;
+  let BASE_CUM_COMPLETED, BASE_CUM_MISSED, BASE_CUM_COST, BASE_GPUS_USED;
+
   const CW = 1000, CH = 220, PAD_L = 34, PAD_R = 12, PAD_T = 12, PAD_B = 22;
   const plotW = CW - PAD_L - PAD_R, plotH = CH - PAD_T - PAD_B;
-  const maxCompleted = Math.max(AGENT_CUM_COMPLETED[23], BASE_CUM_COMPLETED[23]) * 1.08;
+  let maxCompleted, staticParts;
 
-  function xAt(hour) { return PAD_L + (hour / 23) * plotW; }
+  function xAt(hour) { return PAD_L + (hour / MAX_HOUR) * plotW; }
   function yAt(val) { return PAD_T + plotH - (val / maxCompleted) * plotH; }
 
   function pathFor(cumArr, uptoHour) {
@@ -409,7 +325,6 @@
 
   function buildStaticChartParts() {
     let svgStr = "";
-    // horizontal gridlines + y labels
     const steps = 4;
     for (let i = 0; i <= steps; i++) {
       const val = (maxCompleted / steps) * i;
@@ -417,13 +332,11 @@
       svgStr += `<line class="grid-line" x1="${PAD_L}" y1="${y.toFixed(1)}" x2="${CW - PAD_R}" y2="${y.toFixed(1)}"/>`;
       svgStr += `<text class="axis-label" x="${PAD_L - 6}" y="${(y + 3).toFixed(1)}" text-anchor="end">${Math.round(val)}</text>`;
     }
-    // x labels every 4 hours
-    for (let h = 0; h <= 23; h += 4) {
+    for (let h = 0; h <= MAX_HOUR; h += 4) {
       svgStr += `<text class="axis-label" x="${xAt(h).toFixed(1)}" y="${CH - 4}" text-anchor="middle">${h}h</text>`;
     }
     return svgStr;
   }
-  const staticParts = buildStaticChartParts();
 
   function renderChart(hour) {
     const agentPath = pathFor(AGENT_CUM_COMPLETED, hour);
@@ -440,54 +353,51 @@
       `<circle class="dot-agent" cx="${px.toFixed(1)}" cy="${ay.toFixed(1)}" r="4"/>`;
   }
 
-  // ---------- Main render ----------
+  function successRate(completed) { return (completed / TOTAL_JOBS) * 100; }
+
   function render(hour) {
     hourNum.textContent = hour;
     scrubber.value = hour;
 
-    const aUtil = AGENT.util[hour], bUtil = BASELINE.util[hour];
-    $("gpuAgentNow").textContent = litCount(aUtil);
-    $("gpuBaselineNow").textContent = litCount(bUtil);
-    setLit(agentCells, litCount(aUtil));
-    setLit(baseCells, litCount(bUtil));
+    $("gpuAgentNow").textContent = Math.round(AGENT_GPUS_USED[hour]);
+    $("gpuBaselineNow").textContent = Math.round(BASE_GPUS_USED[hour]);
+    setLit(agentCells, Math.round(AGENT_GPUS_USED[hour]));
+    setLit(baseCells, Math.round(BASE_GPUS_USED[hour]));
 
     $("agentCompleted").textContent = AGENT_CUM_COMPLETED[hour];
     $("agentMissed").textContent = AGENT_CUM_MISSED[hour];
     $("agentCost").textContent = "$" + AGENT_CUM_COST[hour].toFixed(2);
-    const aSucc = successRate(AGENT_CUM_COMPLETED[hour]);
-    $("agentSuccess").textContent = fmtPct(aSucc);
+    $("agentSuccess").textContent = fmtPct(successRate(AGENT_CUM_COMPLETED[hour]));
 
     $("baseCompleted").textContent = BASE_CUM_COMPLETED[hour];
     $("baseMissed").textContent = BASE_CUM_MISSED[hour];
     $("baseCost").textContent = "$" + BASE_CUM_COST[hour].toFixed(2);
-    const bSucc = successRate(BASE_CUM_COMPLETED[hour]);
-    $("baseSuccess").textContent = fmtPct(bSucc);
+    $("baseSuccess").textContent = fmtPct(successRate(BASE_CUM_COMPLETED[hour]));
 
-    const gap = aSucc - bSucc;
+    const gap = successRate(AGENT_CUM_COMPLETED[hour]) - successRate(BASE_CUM_COMPLETED[hour]);
     calloutGap.textContent = (gap >= 0 ? "+" : "") + gap.toFixed(1);
     callout.classList.toggle("show", hour >= 2);
 
     renderChart(hour);
   }
 
-  // ---------- Playback control ----------
   let currentHour = 0;
   let playing = false;
   let timer = null;
 
   function goTo(hour) {
-    currentHour = Math.max(0, Math.min(23, hour));
+    currentHour = Math.max(0, Math.min(MAX_HOUR, hour));
     render(currentHour);
   }
 
   function tick() {
-    if (currentHour >= 23) { stopPlayback(); return; }
+    if (currentHour >= MAX_HOUR) { stopPlayback(); return; }
     currentHour += 1;
     render(currentHour);
   }
 
   function startPlayback() {
-    if (currentHour >= 23) { currentHour = 0; render(currentHour); }
+    if (currentHour >= MAX_HOUR) { currentHour = 0; render(currentHour); }
     playing = true;
     playBtn.textContent = "Pause";
     timer = setInterval(tick, parseInt(speedSelect.value, 10));
@@ -499,26 +409,41 @@
     if (timer) { clearInterval(timer); timer = null; }
   }
 
-  playBtn.addEventListener("click", function () {
-    if (playing) stopPlayback(); else startPlayback();
-  });
+  playBtn.addEventListener("click", () => { playing ? stopPlayback() : startPlayback(); });
+  resetBtn.addEventListener("click", () => { stopPlayback(); goTo(0); });
+  scrubber.addEventListener("input", () => { stopPlayback(); goTo(parseInt(scrubber.value, 10)); });
+  speedSelect.addEventListener("change", () => { if (playing) { stopPlayback(); startPlayback(); } });
 
-  resetBtn.addEventListener("click", function () {
-    stopPlayback();
-    goTo(0);
-  });
+  // ---------- Load the real trace and only render once it's here ----------
+  fetch('trace.json?t=' + Date.now())
+    .then(r => r.json())
+    .then(data => {
+      const agentHours = data.rl_agent_shared_pool;
+      const baseHours = data.priority;
+      TOTAL_JOBS = data.n_jobs;
+      MAX_HOUR = agentHours.length - 1;
 
-  scrubber.addEventListener("input", function () {
-    stopPlayback();
-    goTo(parseInt(scrubber.value, 10));
-  });
+      AGENT_CUM_COMPLETED = agentHours.map(h => h.cum_completed);
+      AGENT_CUM_MISSED   = agentHours.map(h => h.cum_missed);
+      AGENT_CUM_COST     = agentHours.map(h => h.cum_cost);
+      AGENT_GPUS_USED    = agentHours.map(h => h.gpus_used);
 
-  speedSelect.addEventListener("change", function () {
-    if (playing) { stopPlayback(); startPlayback(); }
-  });
+      BASE_CUM_COMPLETED  = baseHours.map(h => h.cum_completed);
+      BASE_CUM_MISSED    = baseHours.map(h => h.cum_missed);
+      BASE_CUM_COST      = baseHours.map(h => h.cum_cost);
+      BASE_GPUS_USED     = baseHours.map(h => h.gpus_used);
 
-  // Initial paint
-  render(0);
+      scrubber.max = MAX_HOUR;
+      maxCompleted = Math.max(AGENT_CUM_COMPLETED[MAX_HOUR], BASE_CUM_COMPLETED[MAX_HOUR]) * 1.08;
+      staticParts = buildStaticChartParts();
+
+      render(0);
+    })
+    .catch(err => {
+      console.error("Failed to load trace.json:", err);
+      document.querySelector(".subtitle").textContent =
+        "Could not load trace.json -- run main.py (or export_trace.py) in this folder first, then reload this page.";
+    });
 })();
 </script>
 </body>
