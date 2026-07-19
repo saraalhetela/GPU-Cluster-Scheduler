@@ -140,12 +140,12 @@ def evaluate_agent_shared_pool(model, jobs, prices, device="cpu", total_gpus=Non
             "max_gpus": float(j["max_gpus"]),
             "arrival_time": float(j["arrival_time"]),
             "deadline": float(j["deadline"]),
+            "priority": j["priority"],
             "completed": False,
             "missed": False,
         }
         for j in jobs
     }
-
     total_cost = 0.0
     total_gpu_hours_used = 0.0
 
