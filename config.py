@@ -49,8 +49,13 @@ IDLE_PENALTY_COEF = 0.5  # penalty per step the job is allocated 0 GPUs
 # train.py imports these directly -- do not touch.
 BATCH_SIZE = 64
 GAMMA = 0.99
-LEARNING_RATE = 1e-4
+LEARNING_RATE = 5e-5   # halved from 1e-4 -- train ep reward was swinging
+                        # wildly step to step (e.g. -95.90 sandwiched between
+                        # near-zero values), classic sign the LR is too high
+                        # for how sparse/spiky this reward signal is
 MEMORY_SIZE = 20_000
+SYNC_FREQ = 600         # doubled from 300 -- target network was chasing the
+                        # online network too fast, compounding the instability
 SYNC_FREQ = 300
 MAX_STEPS = 30_000
 EPSILON_START = 1.0
