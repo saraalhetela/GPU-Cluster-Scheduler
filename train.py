@@ -43,9 +43,10 @@ def train_agent(model, train_jobs, val_jobs, prices, device="cpu"):
     # cluster headroom -- train_jobs/val_jobs each get their own curve
     # since they're different subsets of the queue with different
     # contention patterns.
-    full_demand = compute_hourly_demand(train_jobs + val_jobs, episode_length=EPISODE_LENGTH)
-
-    env = GPUClusterEnv(jobs=train_jobs, prices=prices, demand_curve=full_demand, test=False)
+    train_demand = compute_hourly_demand(train_jobs, episode_length=EPISODE_LENGTH)
+    val_demand   = compute_hourly_demand(val_jobs, episode_length=EPISODE_LENGTH)
+    
+    env = GPUClusterEnv(jobs=train_jobs, prices=prices, demand_curve=train_demand, test=False)
 
     def flush_n(buf):
         """Compute N-step return and push numpy transition to replay."""
