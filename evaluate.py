@@ -23,8 +23,7 @@ import config
 import data_preprocessing as dp
 from environment import GPUClusterEnv, ACTIONS
 from model import DuelingMLP
-from baseline import run_all_baselines, compute_hourly_demand
-
+from baseline import run_all_baselines, compute_hourly_demand, PRIORITY_RANK
 
 def evaluate_agent(model, jobs, prices, demand_curve=None, device="cpu"):
     """
@@ -178,7 +177,7 @@ def evaluate_agent_shared_pool(model, jobs, prices, device="cpu", total_gpus=Non
             background_demand = max(0.0, total_eligible_demand - s["max_gpus"])
             cluster_util = float(np.clip(background_demand / total_gpus, 0.0, 1.0))
             state_vecs.append(_build_state(
-                hour, price, job_progress, deadline_remaining, s["remaining"], cluster_util
+                hour, price, job_progress, deadline_remaining, s["remaining"], cluster_util, s["priority"]
             ))
 
         batch = torch.from_numpy(np.stack(state_vecs)).float().to(device)
@@ -190,8 +189,12 @@ def evaluate_agent_shared_pool(model, jobs, prices, device="cpu", total_gpus=Non
             s = state[jid]
             requests[jid] = min(ACTIONS[a], s["max_gpus"], s["remaining"])
 
-        # Capacity arbitration (earliest-deadline-first) -- see docstring.
-        order = sorted(eligible_ids, key=lambda jid: state[jid]["deadline"])
+        # Capacity arbitration -- priority first, deadline as tiebreak within
+        # a priority tier (matches baseline.py's "priority" policy ordering,
+        # so the agent is now arbitrated the same way that baseline is,
+        # instead of a plain earliest-deadline-first rule that ignored
+        # priority entirely).
+        order = sorted(eligible_ids, key=lambda jid: (PRIORITY_RANK[state[jid]["priority"]], state[jid]["deadline"]))
 
         gpus_left = total_gpus
         for jid in order:
