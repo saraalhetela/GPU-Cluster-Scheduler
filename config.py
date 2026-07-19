@@ -24,12 +24,20 @@ EPISODE_LENGTH = 24     # hours, hard cap safety backstop (mirrors EV project's 
 TOTAL_CLUSTER_GPUS = 32
 
 # --- reward shaping coefficients ---
-COST_COEF = 0.4 # multiplies -gpu_price * gpu_hours_used
-                 # (lowered from 1.0 -- at 1.0 the accumulated per-step cost
-                 # penalty likely outweighs SHAPING_COEF's max +2.0/job
-                 # progress reward, biasing the agent toward under-allocating.
-                 # Worth sweeping 1.0 / 0.6 / 0.4 / 0.2 and comparing success
-                 # rate, not just taking this value on faith.)
+COST_COEF = 0.6  # bumped from 0.4 -- now safe to raise since cost penalty is
+                 # urgency-scaled (see COST_URGENCY_FLOOR below), so it no
+                 # longer competes flatly against SHAPING_COEF/UNMET_PENALTY_COEF
+                 # the way a flat higher COST_COEF would have. Still worth
+                 # sweeping 0.6 / 0.8 / 1.0 and checking deadline_success_rate_pct
+                 # doesn't regress below ~85%.
+
+COST_URGENCY_FLOOR = 0.15  # at max urgency_ratio (job in real trouble, no
+                            # slack left), cost penalty shrinks to this
+                            # fraction of COST_COEF -- lets the agent pay up to
+                            # finish without being punished for it. At zero
+                            # urgency (lots of slack), full COST_COEF applies,
+                            # so the agent has real incentive to wait for a
+                            # cheaper hour instead of paying peak price.
 
 SHAPING_COEF = 2.0       # dense per-step reward for making progress
 UNMET_PENALTY_COEF = 20  # terminal penalty per unmet GPU-hour (same value that
