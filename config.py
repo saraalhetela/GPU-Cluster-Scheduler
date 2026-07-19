@@ -8,8 +8,9 @@ JOBS_PATH = "./data/jobs.csv"
 CHECKPOINT_DIR = "./checkpoints"
 
 # --- RL dims (env-dependent, same shape as EV project) ---
-STATE_DIM = 7          # hour_sin, hour_cos, gpu_price, job_progress,
-                        # deadline_remaining, gpu_hours_remaining, cluster_utilization
+STATE_DIM = 8 # hour_sin, hour_cos, gpu_price, job_progress,
+              # deadline_remaining, gpu_hours_remaining, cluster_utilization,
+              # urgency_ratio
 ACTION_DIM = 5          # 0 / 2 / 4 / 6 / 8 GPUs
 GPU_ACTIONS = [0, 2, 4, 6, 8]
 
@@ -23,7 +24,13 @@ EPISODE_LENGTH = 24     # hours, hard cap safety backstop (mirrors EV project's 
 TOTAL_CLUSTER_GPUS = 32
 
 # --- reward shaping coefficients ---
-COST_COEF = 1.0         # multiplies -gpu_price * gpu_hours_used
+COST_COEF = 0.4 # multiplies -gpu_price * gpu_hours_used
+                 # (lowered from 1.0 -- at 1.0 the accumulated per-step cost
+                 # penalty likely outweighs SHAPING_COEF's max +2.0/job
+                 # progress reward, biasing the agent toward under-allocating.
+                 # Worth sweeping 1.0 / 0.6 / 0.4 / 0.2 and comparing success
+                 # rate, not just taking this value on faith.)
+
 SHAPING_COEF = 2.0       # dense per-step reward for making progress
 UNMET_PENALTY_COEF = 20  # terminal penalty per unmet GPU-hour (same value that
                           # worked for the EV project's unmet_energy penalty)
@@ -37,10 +44,10 @@ GAMMA = 0.99
 LEARNING_RATE = 1e-4
 MEMORY_SIZE = 20_000
 SYNC_FREQ = 300
-MAX_STEPS = 5_000
+MAX_STEPS = 30_000
 EPSILON_START = 1.0
 EPSILON_END = 0.05
-N_STEP = 2
+N_STEP = 4
 TRAIN_RATIO = 0.85   # splits jobs.csv 170/30 train/test, same pattern as fleet.csv
 
 # --- checkpoint/validation cadence ---
