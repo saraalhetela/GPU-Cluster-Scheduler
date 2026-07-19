@@ -57,6 +57,15 @@ def main():
     torch.save(trained_model.state_dict(), final_ckpt)
     print(f"  -> {final_ckpt}")
 
+    best_ckpt = f"{config.CHECKPOINT_DIR}/ckpt_best.pt"
+    if os.path.exists(best_ckpt):
+        print(f"\nLoading best-validation checkpoint for evaluation ({best_ckpt})...")
+        trained_model.load_state_dict(torch.load(best_ckpt))
+        trained_model.eval()
+    else:
+        print("\n(No ckpt_best.pt found -- evaluating final-step weights. "
+              "Make sure the train.py best-checkpoint change is applied.)")
+
     print("\nPlotting training curves...")
     utils.plot_profits(train_rewards, title="Training Episode Rewards",
                         filename="train_rewards.png")
