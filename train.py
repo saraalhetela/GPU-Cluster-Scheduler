@@ -138,7 +138,7 @@ def train_agent(model, train_jobs, val_jobs, prices, device="cpu"):
                 last_checkpoint = step_count
                 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
                 torch.save(agent.state_dict(), f"{CHECKPOINT_DIR}/ckpt_{step_count}.pt")
-                vr = _quick_val(agent, val_jobs, prices, full_demand, device)
+                vr = _quick_val(agent, val_jobs, prices, val_demand, device)
                 val_rewards.append((step_count, vr))
                 if vr > best_val_reward:
                     best_val_reward = vr
