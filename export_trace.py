@@ -125,12 +125,12 @@ def trace_agent_shared_pool(model, jobs, prices, device="cpu", total_gpus=None, 
             "max_gpus": float(j["max_gpus"]),
             "arrival_time": float(j["arrival_time"]),
             "deadline": float(j["deadline"]),
+            "priority": j["priority"],
             "completed": False,
             "missed": False,
         }
         for j in jobs
     }
-
     cum_cost = 0.0
     trace = []
 
@@ -158,7 +158,7 @@ def trace_agent_shared_pool(model, jobs, prices, device="cpu", total_gpus=None, 
                 background_demand = max(0.0, total_eligible_demand - s["max_gpus"])
                 cluster_util = float(np.clip(background_demand / total_gpus, 0.0, 1.0))
                 state_vecs.append(_build_state_vec(
-                    hour, price, job_progress, deadline_remaining, s["remaining"], cluster_util
+                    hour, price, job_progress, deadline_remaining, s["remaining"], cluster_util, s["priority"]
                 ))
 
             batch = torch.from_numpy(np.stack(state_vecs)).float().to(device)
