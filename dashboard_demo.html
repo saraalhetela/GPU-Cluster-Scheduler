@@ -322,9 +322,23 @@
     return { completed, missed, cost, util };
   }
 
-  // Targets pulled directly from the reported headline table (shared-pool run).
-  const AGENT = buildPolicy(7, { completed: 157, missed: 22, cost: 605.43, util: 81.7 });
-  const BASELINE = buildPolicy(42, { completed: 141, missed: 38, cost: 626.11, util: 86.1 });
+
+  let AGENT_CUM_COMPLETED, AGENT_CUM_MISSED, AGENT_CUM_COST, AGENT_UTIL;
+  let BASE_CUM_COMPLETED, BASE_CUM_MISSED, BASE_CUM_COST, BASE_UTIL;
+
+  fetch('trace.json?t=' + Date.now())
+    .then(r => r.json())
+    .then(data => {
+      // adapt these field names to match export_trace.py's actual trace.json
+      // structure -- inspect one output file to confirm the real keys
+      AGENT_CUM_COMPLETED = data.rl_agent_shared_pool.map(h => h.cum_completed);
+      AGENT_CUM_MISSED   = data.rl_agent_shared_pool.map(h => h.cum_missed);
+      AGENT_CUM_COST     = data.rl_agent_shared_pool.map(h => h.cum_cost);
+      BASE_CUM_COMPLETED  = data.priority.map(h => h.cum_completed);
+      BASE_CUM_MISSED    = data.priority.map(h => h.cum_missed);
+      BASE_CUM_COST      = data.priority.map(h => h.cum_cost);
+      render(0);
+    });
 
   function cumulative(arr) {
     const out = [];
