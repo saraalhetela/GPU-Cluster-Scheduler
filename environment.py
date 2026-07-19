@@ -174,7 +174,13 @@ class GPUClusterEnv:
             cluster_utilization = np.clip(
                 _synthetic_cluster_background_load(h) + 0.1 * this_job_frac, 0.0, 1.0
             )
-
+        # NEW: hours of GPU-work still needed per hour of runway left.
+        # Uncapped this blows up as deadline_remaining -> 0, so clip it --
+        # anything past ~5x is "already in trouble," no need to distinguish
+        # further for the network.
+        urgency_ratio = float(
+            np.clip(self.gpu_hours_remaining / max(deadline_remaining, 0.5), 0.0, 5.0)
+        )
         state = np.array(
             [
                 hour_sin,
@@ -184,6 +190,7 @@ class GPUClusterEnv:
                 deadline_remaining,
                 self.gpu_hours_remaining,
                 cluster_utilization,
+                urgency_ratio,
             ],
             dtype=np.float32,
         )
