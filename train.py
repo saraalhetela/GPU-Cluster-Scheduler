@@ -140,9 +140,9 @@ def train_agent(model, train_jobs, val_jobs, prices, device="cpu"):
                 vr = _quick_val(agent, val_jobs, prices, full_demand, device)
                 val_rewards.append((step_count, vr))
                 if vr > best_val_reward:
-                best_val_reward = vr
-                best_step = step_count
-                torch.save(agent.state_dict(), f"{CHECKPOINT_DIR}/ckpt_best.pt")
+                    best_val_reward = vr
+                    best_step = step_count
+                    torch.save(agent.state_dict(), f"{CHECKPOINT_DIR}/ckpt_best.pt")
                 print(f"Step {step_count:>7} | ε={epsilon:.3f} | "
                       f"Train ep reward={ep_reward:.2f} | Val reward={vr:.2f}")
 
