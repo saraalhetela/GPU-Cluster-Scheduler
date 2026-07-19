@@ -30,6 +30,8 @@ def train_agent(model, train_jobs, val_jobs, prices, device="cpu"):
     last_checkpoint = 0
     train_rewards = []
     val_rewards   = []
+    best_val_reward = float("-inf")
+    best_step = 0
 
     # One env instance for the whole training run -- GPUClusterEnv handles
     # per-episode job sampling internally via reset(), unlike the stock
@@ -138,6 +140,10 @@ def train_agent(model, train_jobs, val_jobs, prices, device="cpu"):
                 torch.save(agent.state_dict(), f"{CHECKPOINT_DIR}/ckpt_{step_count}.pt")
                 vr = _quick_val(agent, val_jobs, prices, val_demand, device)
                 val_rewards.append((step_count, vr))
+                if vr > best_val_reward:
+                best_val_reward = vr
+                best_step = step_count
+                torch.save(agent.state_dict(), f"{CHECKPOINT_DIR}/ckpt_best.pt")
                 print(f"Step {step_count:>7} | ε={epsilon:.3f} | "
                       f"Train ep reward={ep_reward:.2f} | Val reward={vr:.2f}")
 
@@ -145,7 +151,8 @@ def train_agent(model, train_jobs, val_jobs, prices, device="cpu"):
                 break
 
         train_rewards.append(ep_reward)
-
+    print(f"Best checkpoint: step {best_step} (val reward={best_val_reward:.2f}) "
+          f"-> {CHECKPOINT_DIR}/ckpt_best.pt")
     return agent, train_rewards, val_rewards
 
 
