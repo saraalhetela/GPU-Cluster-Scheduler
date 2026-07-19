@@ -98,19 +98,19 @@ def evaluate_agent(model, jobs, prices, demand_curve=None, device="cpu"):
 
 
 def _build_state(hour, price, job_progress, deadline_remaining, gpu_hours_remaining, cluster_utilization):
-    """Same 7-dim state layout GPUClusterEnv._get_state() produces, built
+    """Same 8-dim state layout GPUClusterEnv._get_state() produces, built
     here directly since we're driving multiple jobs through the model at
     once rather than one env's own internal reset()/step() loop.
-    cluster_utilization is passed in rather than computed here, since the
-    caller has better information available (see evaluate_agent_shared_pool,
-    which computes it LIVE from the exact set of jobs competing this hour,
-    more precise than a precomputed worst-case curve)."""
+    ..."""
     h = hour % 24
     hour_sin = np.sin(2 * np.pi * h / 24)
     hour_cos = np.cos(2 * np.pi * h / 24)
+    urgency_ratio = float(
+        np.clip(gpu_hours_remaining / max(deadline_remaining, 0.5), 0.0, 5.0)
+    )
     return np.array(
         [hour_sin, hour_cos, price, job_progress, deadline_remaining,
-         gpu_hours_remaining, cluster_utilization],
+         gpu_hours_remaining, cluster_utilization, urgency_ratio],
         dtype=np.float32,
     )
 
