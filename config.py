@@ -8,9 +8,13 @@ JOBS_PATH = "./data/jobs.csv"
 CHECKPOINT_DIR = "./checkpoints"
 
 # --- RL dims (env-dependent, same shape as EV project) ---
-STATE_DIM = 8 # hour_sin, hour_cos, gpu_price, job_progress,
+STATE_DIM = 9 # hour_sin, hour_cos, gpu_price, job_progress,
               # deadline_remaining, gpu_hours_remaining, cluster_utilization,
-              # urgency_ratio
+              # urgency_ratio, priority_rank
+
+PRIORITY_RANK_VALUE = {"High": 1.0, "Medium": 0.5, "Low": 0.0}  # feature encoding,
+                        # higher = more important (separate from baseline.py's
+                        # PRIORITY_RANK, which is sort-order: lower = served first)
 ACTION_DIM = 5          # 0 / 2 / 4 / 6 / 8 GPUs
 GPU_ACTIONS = [0, 2, 4, 6, 8]
 
