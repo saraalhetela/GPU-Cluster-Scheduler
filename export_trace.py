@@ -222,7 +222,6 @@ def main(checkpoint_path=None):
           f"completed={priority_trace[-1]['cum_completed']}  missed={priority_trace[-1]['cum_missed']}")
     print(f"  rl_agent final:  cost=${agent_trace[-1]['cum_cost']:.2f}  "
           f"completed={agent_trace[-1]['cum_completed']}  missed={agent_trace[-1]['cum_missed']}")
-    print(f"\nPaste the contents of {trace_path} back to Claude to build the animated demo.")
 
 
 if __name__ == "__main__":
