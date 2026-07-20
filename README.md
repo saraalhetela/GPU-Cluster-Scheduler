@@ -76,8 +76,8 @@ sound.)*
 
 | Training episode reward | Validation reward |
 |---|---|
-| ![Training episode rewards](<img width="3000" height="1500" alt="train_rewards" src="https://github.com/user-attachments/assets/229c242e-d77d-449d-917a-e43d78d2103f" />
-) | ![Validation reward during training]<img width="3000" height="1500" alt="val_rewards" src="https://github.com/user-attachments/assets/f0b477e9-1b65-4c82-9cf6-14cc8c29ae9f" />
+|<img width="3000" height="1500" alt="train_rewards" src="https://github.com/user-attachments/assets/229c242e-d77d-449d-917a-e43d78d2103f" />
+| <img width="3000" height="1500" alt="val_rewards" src="https://github.com/user-attachments/assets/f0b477e9-1b65-4c82-9cf6-14cc8c29ae9f" />
  |
 
 Per-episode training reward is noisy by design — each episode is a single
