@@ -2,12 +2,6 @@
 baseline.py -- whole-queue heuristic comparison for the GPU cluster
 scheduler pitch.
 
-This is NOT a wrapper around GPUClusterEnv. GPUClusterEnv schedules one
-job per episode and has no concept of a shared, capacity-limited cluster
--- these three heuristics only differ from each other when jobs actually
-COMPETE for a fixed GPU pool, so this runs an hour-by-hour simulation of
-the entire jobs.csv queue directly against config.TOTAL_CLUSTER_GPUS.
-
 Policies:
     FCFS        -- earliest arrival_time served first
     Always Max  -- arbitrary (jobs.csv) order, every active job gets its
@@ -55,11 +49,6 @@ def _order_jobs(jobs, policy):
 
 
 def simulate_policy(jobs, prices, policy, total_gpus=None, episode_length=None):
-    """Hour-by-hour simulation of the whole job queue sharing a fixed pool.
-
-    Returns a dict of headline metrics: gpu_utilization (%), total_cost,
-    jobs_completed, deadlines_missed, deadline_success_rate (%).
-    """
     total_gpus = total_gpus or config.TOTAL_CLUSTER_GPUS
     episode_length = episode_length or config.EPISODE_LENGTH
 
@@ -82,15 +71,10 @@ def simulate_policy(jobs, prices, policy, total_gpus=None, episode_length=None):
     for hour in range(episode_length):
         price = prices.get(hour % 24, sum(prices.values()) / len(prices))
 
-        # Deadline sweep: anything not completed and past its deadline this
-        # hour is missed, regardless of policy -- same treatment as
-        # GPUClusterEnv's own terminal-penalty rule (no special-casing).
         for s in state.values():
             if not s["completed"] and not s["missed"] and hour >= s["deadline"]:
                 s["missed"] = True
 
-        # Who's eligible to run this hour: arrived, not finished, not
-        # already written off as missed.
         eligible_ids = [
             jid for jid, s in state.items()
             if s["arrival_time"] <= hour < s["deadline"] and not s["completed"] and not s["missed"]
