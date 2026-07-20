@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 
 
 def plot_profits(profits, title="Training Episode Rewards", filename="profits.png"):
-    """Plot and save a per-episode training reward curve."""
     os.makedirs("plots", exist_ok=True)
     save_path = os.path.join("plots", filename)
     plt.figure(figsize=(10, 5))
@@ -20,7 +19,6 @@ def plot_profits(profits, title="Training Episode Rewards", filename="profits.pn
 
 
 def plot_val_curve(val_rewards, filename="val_rewards.png"):
-    """Plot validation reward checkpoints during training."""
     if not val_rewards:
         return
     steps, rewards = zip(*val_rewards)
