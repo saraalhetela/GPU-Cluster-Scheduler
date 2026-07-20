@@ -1,63 +1,59 @@
-"""config.py -- central configuration for data paths, RL dimensions,
-cluster/reward constants, and training hyperparameters."""
+import torch
 
-DEVICE = "cpu"  # small MLP + short episodes; no GPU needed to train this agent
+DEVICE = "cpu"  # confirmed sufficient, no GPU needed for training this agent
 
 # --- data paths ---
 PRICE_PATH = "./data/gpu_prices.csv"
 JOBS_PATH = "./data/jobs.csv"
-OUTPUTS_DIR = "./outputs"
 CHECKPOINT_DIR = "./checkpoints"
-OUTPUTS_DIR = "./outputs"  # results.json / trace.json -- run artifacts, not inputs
 
-# --- RL dims ---
-STATE_DIM = 9  # hour_sin, hour_cos, gpu_price, job_progress, deadline_remaining,
-               # gpu_hours_remaining, cluster_utilization, urgency_ratio, priority_rank
-
-PRIORITY_RANK_VALUE = {"High": 1.0, "Medium": 0.5, "Low": 0.0}  # state feature encoding,
-                        # higher = more important (distinct from baseline.py's
-                        # PRIORITY_RANK, which is a sort key: lower = served first)
+# --- RL dims (env-dependent, same shape as EV project) ---
+STATE_DIM = 8 # hour_sin, hour_cos, gpu_price, job_progress,
+              # deadline_remaining, gpu_hours_remaining, cluster_utilization,
+              # urgency_ratio
 ACTION_DIM = 5          # 0 / 2 / 4 / 6 / 8 GPUs
 GPU_ACTIONS = [0, 2, 4, 6, 8]
 
-EPISODE_LENGTH = 24     # hours; hard cap safety backstop
+EPISODE_LENGTH = 24     # hours, hard cap safety backstop (mirrors EV project's cap)
 
-# --- whole-queue simulation constants (used by baseline.py / evaluate.py's
-# shared-pool path, not by GPUClusterEnv itself, which has no notion of a
-# shared pool) ---
+# --- baseline.py: whole-queue simulation, NOT used by GPUClusterEnv itself ---
+# GPUClusterEnv schedules one job per episode and has no notion of a shared
+# pool; baseline.py's FCFS/Always-Max/Priority comparison runs the *entire*
+# jobs.csv queue against a fixed-size cluster instead, which is where this
+# constant is actually used.
 TOTAL_CLUSTER_GPUS = 32
 
 # --- reward shaping coefficients ---
-COST_COEF = 0.45
-COST_URGENCY_FLOOR = 0.35  # cost sensitivity at max urgency: 1.0 (full sensitivity)
-                            # at zero urgency, tapering down to this floor as the
-                            # deadline approaches -- lets the agent optimize for
-                            # price when it has slack, and stop caring about price
-                            # once a miss is imminent.
+COST_COEF = 0.4 # multiplies -gpu_price * gpu_hours_used
+                 # (lowered from 1.0 -- at 1.0 the accumulated per-step cost
+                 # penalty likely outweighs SHAPING_COEF's max +2.0/job
+                 # progress reward, biasing the agent toward under-allocating.
+                 # Worth sweeping 1.0 / 0.6 / 0.4 / 0.2 and comparing success
+                 # rate, not just taking this value on faith.)
 
 SHAPING_COEF = 2.0       # dense per-step reward for making progress
-UNMET_PENALTY_COEF = 20  # base penalty per unmet GPU-hour
-PRIORITY_PENALTY_MULT = {"High": 1.6, "Medium": 1.0, "Low": 0.6}
-MAX_UNMET_PENALTY = 50   # hard cap on the terminal miss penalty -- without it, a
-                          # large High-priority job (up to 96 GPU-hours in this
-                          # dataset) starved of capacity can produce a single
-                          # transition penalty many times a normal episode's total
-                          # reward, which then destabilizes training whenever that
-                          # transition gets resampled from replay.
-
+UNMET_PENALTY_COEF = 20  # terminal penalty per unmet GPU-hour (same value that
+                          # worked for the EV project's unmet_energy penalty)
 IDLE_PENALTY_COEF = 0.5  # penalty per step the job is allocated 0 GPUs
                           # while incomplete and not yet at its deadline
 
-# --- DQN hyperparameters ---
+# --- algorithm-layer constants: UNCHANGED from the EV/stock-trader repo ---
+# train.py imports these directly -- do not touch.
 BATCH_SIZE = 64
 GAMMA = 0.99
-LEARNING_RATE = 5e-5
+LEARNING_RATE = 1e-4
 MEMORY_SIZE = 20_000
-SYNC_FREQ = 300          # target network sync interval, in steps
+SYNC_FREQ = 300
 MAX_STEPS = 30_000
 EPSILON_START = 1.0
 EPSILON_END = 0.05
 N_STEP = 4
-TRAIN_RATIO = 0.85       # splits jobs.csv 170/30 train/val
+TRAIN_RATIO = 0.85   # splits jobs.csv 170/30 train/test, same pattern as fleet.csv
 
-CHECKPOINT_FREQ = 1_000  # steps between checkpoint saves + validation passes
+# --- checkpoint/validation cadence ---
+# Added for the GPU pivot: the stock/EV version hardcoded "every 5000
+# steps," which only ever fires once now that MAX_STEPS itself is 5000.
+# train.py checks a running counter (step_count - last_checkpoint) against
+# this instead of a modulo at episode boundaries, so it actually fires
+# reliably regardless of variable episode length.
+CHECKPOINT_FREQ = 1_000
