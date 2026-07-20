@@ -10,10 +10,6 @@ Contains:
                                     demo reliably shows the reward
                                     function's penalty terms mattering)
 
-For REAL data (the Alibaba PAI trace) and for combining real +
-synthetic into the final jobs.csv, see real_data.py -- kept separate since
-that file depends on an external download this one doesn't need.
-
 CLI:
     python data_generation.py prices      # -> data/gpu_prices.csv
     python data_generation.py jobs        # -> data/jobs.csv (100% synthetic)
