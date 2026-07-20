@@ -103,7 +103,7 @@ included so the reward function's penalty terms are demonstrably
 exercised in the demo rather than left to chance.
 
 Also worth stating plainly: `deadline` and `priority` are **not** real
-fields — neither real-data source used (Philly, Alibaba PAI) logs an SLA
+fields — the real-data source used (Alibaba PAI) logs no SLA
 or priority field. Deadlines are derived via a slack multiplier off each
 job's minimum feasible completion time, and priority is derived from a
 hash of a real grouping field (virtual cluster / user), bucketed Low/
@@ -126,7 +126,7 @@ multi-agent scheduling is out of scope for this project.
 data/                     jobs.csv + gpu_prices.csv -- committed, ready to run against
 outputs/                  results.json + trace.json -- run artifacts, written by main.py
 data_generation.py        synthetic job/price generation
-real_data.py               real (Philly/Alibaba) trace parsing + hybrid build
+real_data.py               real (Alibaba PAI) trace parsing + hybrid build
 data_preprocessing.py      loads data/jobs.csv / data/gpu_prices.csv for the env
 environment.py             GPUClusterEnv
 model.py                   DuelingMLP
@@ -146,9 +146,9 @@ directly so the repo runs out of the box -- clone it, `python main.py`,
 done. They're fully derived, small, and don't carry the raw trace data's
 own licensing/hosting concerns.
 
-The raw traces themselves (Philly's `cluster_job_log.json`, Alibaba's
-`pai_job_table.csv` / `pai_task_table.csv`) are *not* committed -- they're
-large external downloads from their own hosts. If you want to see exactly
+The raw trace itself (Alibaba's `pai_job_table.csv` / `pai_task_table.csv`)
+is *not* committed -- it's a large external download from Alibaba's own
+host. If you want to see exactly
 how `data/jobs.csv` was built, or rebuild it from a fresher trace pull,
 `real_data.py`'s module docstring has the download commands and
 `python real_data.py build` reproduces the hybrid file end to end (see
