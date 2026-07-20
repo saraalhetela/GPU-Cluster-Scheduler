@@ -150,6 +150,7 @@ class GPUClusterEnv:
 
         if self.done and not job_complete:
             mult = config.PRIORITY_PENALTY_MULT[self.job["priority"]]
+            penalty = config.UNMET_PENALTY_COEF * mult * self.gpu_hours_remaining
             reward -= min(penalty, config.MAX_UNMET_PENALTY)
             
         reward = float(np.clip(reward, -config.MAX_UNMET_PENALTY, config.MAX_UNMET_PENALTY))
