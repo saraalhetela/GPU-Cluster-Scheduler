@@ -1,10 +1,6 @@
 """
-data_generation.py
-
-All SYNTHETIC data generation for the GPU cluster scheduler, merged from
-what used to be two separate files (generate_gpu_price_data.py +
-generate_jobs.py) into one, since both are small, single-purpose, and
-always used together at setup time.
+data_generation.py -- all SYNTHETIC data generation for the GPU cluster
+scheduler.
 
 Contains:
   - generate_gpu_price_curve()  -> data/gpu_prices.csv
@@ -14,8 +10,8 @@ Contains:
                                     demo reliably shows the reward
                                     function's penalty terms mattering)
 
-For REAL data (the Philly trace) and for combining real + synthetic into
-the final jobs.csv, see real_data.py -- kept separate on purpose, since
+For REAL data (the Philly / Alibaba PAI traces) and for combining real +
+synthetic into the final jobs.csv, see real_data.py -- kept separate since
 that file depends on an external download this one doesn't need.
 
 CLI:
@@ -50,8 +46,7 @@ MAX_GPU_WEIGHTS = [0.35, 0.35, 0.20, 0.10]
 
 def generate_gpu_price_curve(seed: int = SEED) -> pd.DataFrame:
     """Synthetic hourly GPU spot-price curve (no free real historical
-    GPU-price series exists to substitute here, same situation as the
-    EV project's electricity-price data)."""
+    GPU-price series exists to substitute here)."""
     rng = np.random.default_rng(seed)
     hours = np.arange(24)
 
@@ -102,7 +97,7 @@ def generate_edge_case_jobs(n_jobs: int, seed: int = SEED) -> pd.DataFrame:
     """Guaranteed tight-deadline / high-priority jobs, forced regardless of
     seed (unlike generate_jobs()'s random slack_factor, which only
     sometimes produces a near-infeasible job by chance). Used by
-    real_data.py to top up the real Philly-sourced rows."""
+    real_data.py to top up the real Philly/Alibaba-sourced rows."""
     rng = np.random.default_rng(seed + 1)  # different stream than generate_jobs()
 
     arrival_time = np.round(rng.uniform(0, 18, size=n_jobs), 1)
