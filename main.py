@@ -151,13 +151,7 @@ def main():
     _serve_dashboard()
 
 
-def _serve_dashboard(preferred_port=8000):
-    """Starts a local HTTP server (blocking) so dashboard_demo.html's
-    runtime fetch('trace.json') actually works -- opening the file
-    directly via file:// blocks that fetch in most browsers. Tries
-    preferred_port first, falls back to the next few ports if busy.
-    Ctrl+C stops the server; training/evaluation results are already
-    saved to disk by this point regardless."""
+def _serve_dashboard(trace_out, preferred_port=8000):
     from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 
     if not os.path.exists("dashboard_demo.html"):
@@ -165,26 +159,60 @@ def _serve_dashboard(preferred_port=8000):
               "auto-serve. Copy it here and rerun to view the demo.)")
         return
 
-    port = preferred_port
+    run_filename = _build_run_html(trace_out)
+
+    # Detect Google Colab.
+    try:
+        import google.colab
+
+        print("\n" + "=" * 78)
+        print("GOOGLE COLAB DETECTED")
+        print("=" * 78)
+        print(f"Dashboard generated successfully:")
+        print(f"  {run_filename}")
+        print("\nRun the following in a NEW notebook cell:\n")
+
+        print("from google.colab import files")
+        print(f'files.download("{run_filename}")')
+
+        print("\nThen open the downloaded HTML file in your browser.")
+        print("=" * 78)
+
+        return
+
+    except ImportError:
+        pass
+
+    # ---------- Local machine ----------
+    class NoCacheHandler(SimpleHTTPRequestHandler):
+        def end_headers(self):
+            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+            self.send_header("Pragma", "no-cache")
+            self.send_header("Expires", "0")
+            super().end_headers()
+
     server = None
+    port = preferred_port
+
     for candidate in range(preferred_port, preferred_port + 10):
         try:
-            server = ThreadingHTTPServer(("localhost", candidate), SimpleHTTPRequestHandler)
+            server = ThreadingHTTPServer(("localhost", candidate), NoCacheHandler)
             port = candidate
             break
         except OSError:
             continue
 
     if server is None:
-        print(f"\nCouldn't bind a port near {preferred_port} to serve the "
-              f"dashboard -- run `python -m http.server` manually instead.")
+        print(f"\nCouldn't bind a port near {preferred_port}.")
         return
 
-    url = f"http://localhost:{port}/dashboard_demo.html"
+    url = f"http://localhost:{port}/{run_filename}"
+
     print("\n" + "=" * 78)
-    print(f"  DEMO READY -->  {url}")
+    print(f"DEMO READY --> {url}")
+    print(f"Serving from: {os.getcwd()}")
     print("=" * 78)
-    print("  (Ctrl+C to stop the server once you're done viewing.)")
+    print("(Ctrl+C to stop the server.)")
 
     try:
         server.serve_forever()
