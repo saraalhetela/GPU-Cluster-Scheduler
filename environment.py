@@ -1,17 +1,5 @@
 """
-environment.py -- GPU cluster scheduler version.
-Same filename kept (not renamed), same pattern as the EV project:
-class inside fully replaced, TradingEnv/EVChargingEnv -> GPUClusterEnv,
-so train.py's eventual edit stays a one-line import swap.
-
-Scope note (matches the Master Project Definition's "Stretch Goals" list):
-the CORE deliverable schedules ONE active job per episode, exactly like the
-EV project scheduled one EV session per episode. Multi-job concurrent
-scheduling (the agent itself reasoning about *other specific jobs*) is
-still a stretch goal, not required. What CHANGED in this revision: the
-agent now trains under a REAL scarcity signal instead of a purely
-synthetic one -- see `demand_curve` below. That's a step toward realism,
-not the same thing as joint/multi-agent scheduling.
+environment.py
 """
 
 import numpy as np
@@ -21,39 +9,13 @@ ACTIONS = {i: gpus for i, gpus in enumerate(config.GPU_ACTIONS)}  # {0:0,1:2,2:4
 
 
 def _synthetic_cluster_background_load(hour: float) -> float:
-    """
-    Fallback ONLY -- used when no demand_curve is supplied. No separate
-    'rest of cluster' dataset exists, so background utilization from
-    *other* jobs is modeled as a smooth synthetic curve. This is the
-    original placeholder; real training now uses `demand_curve` instead
-    (see baseline.compute_hourly_demand), which reflects the actual
-    jobs.csv queue rather than a made-up sine wave.
-    """
     return 0.25 + 0.35 * np.sin((hour - 6) / 24 * 2 * np.pi) ** 2
 
 
 class GPUClusterEnv:
     def __init__(self, jobs, prices=None, demand_curve=None, total_gpus=None,
                  enforce_capacity=True, test=False):
-        """
-        demand_curve: optional array-like, length >= EPISODE_LENGTH, index
-            = absolute hour, value = worst-case total GPU demand from the
-            whole job set at that hour (see baseline.compute_hourly_demand).
-            When provided, this is used BOTH for the state's
-            cluster_utilization feature (a real signal instead of the old
-            synthetic sine curve) AND, if enforce_capacity=True, to
-            actually cap this episode's job's allocation by remaining
-            cluster headroom. When None, falls back to the old
-            synthetic-only behavior with no capacity constraint at all
-            (backward compatible with pre-scarcity code).
-        total_gpus: cluster capacity for the headroom calculation.
-            Defaults to config.TOTAL_CLUSTER_GPUS.
-        enforce_capacity: if False, demand_curve still informs the state
-            feature but does NOT limit gpus_allocated -- used for
-            isolated/diagnostic evaluation where you want the model to see
-            a realistic utilization reading without the outcome being
-            constrained by it.
-        """
+    
         self.jobs = jobs
         self.prices = prices if prices is not None else {}
         self.demand_curve = np.asarray(demand_curve) if demand_curve is not None else None
@@ -105,38 +67,27 @@ class GPUClusterEnv:
         gpus_allocated = min(requested_gpus, self.max_gpus)
 
         if self.demand_curve is not None and self.enforce_capacity:
-            # Everyone else's worst-case demand this hour = total demand
-            # minus this job's own worst-case contribution (already
-            # counted once in demand_curve, don't double count it).
             background_demand = max(0.0, self._demand_at(self.hour) - self.max_gpus)
             headroom = max(0.0, self.total_gpus - background_demand)
             gpus_allocated = min(gpus_allocated, headroom)
 
         gpu_price_now = self._price_at(self.hour)
 
-        # work actually done this hour: capped by what's left
         gpu_hours_used = min(float(gpus_allocated), self.gpu_hours_remaining)
         progress_delta = gpu_hours_used / self.gpu_hours_required if self.gpu_hours_required > 0 else 0.0
 
-        # urgency BEFORE this step's updates -- how much slack the job has
-        # right now, same formula _get_state() uses for urgency_ratio.
         deadline_remaining_now = max(0.0, self.deadline - self.hour)
         urgency_now = float(
             np.clip(self.gpu_hours_remaining / max(deadline_remaining_now, 0.5), 0.0, 5.0)
         )
-        # 1.0 (full cost sensitivity) at zero urgency, tapering linearly down
-        # to COST_URGENCY_FLOOR at max clipped urgency (5.0) -- lets the agent
-        # be economical when it has time, and pay up without penalty when it doesn't.
         cost_scale = 1.0 - (1.0 - config.COST_URGENCY_FLOOR) * (urgency_now / 5.0)
 
-        # --- reward terms (matches Master Project Definition's formula) ---
         cost = gpu_price_now * gpu_hours_used
         reward -= config.COST_COEF * cost_scale * cost
         reward += config.SHAPING_COEF * progress_delta
         if gpus_allocated == 0 and self.job_progress < 1.0:
             reward -= config.IDLE_PENALTY_COEF
 
-        # --- state updates ---
         self.job_progress = min(1.0, self.job_progress + progress_delta)
         self.gpu_hours_remaining = max(0.0, self.gpu_hours_remaining - gpu_hours_used)
         self.hour += 1.0
@@ -186,10 +137,7 @@ class GPUClusterEnv:
             cluster_utilization = np.clip(
                 _synthetic_cluster_background_load(h) + 0.1 * this_job_frac, 0.0, 1.0
             )
-        # NEW: hours of GPU-work still needed per hour of runway left.
-        # Uncapped this blows up as deadline_remaining -> 0, so clip it --
-        # anything past ~5x is "already in trouble," no need to distinguish
-        # further for the network.
+            
         urgency_ratio = float(
             np.clip(self.gpu_hours_remaining / max(deadline_remaining, 0.5), 0.0, 5.0)
         )
