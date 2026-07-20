@@ -10,7 +10,7 @@ Contains:
                                     demo reliably shows the reward
                                     function's penalty terms mattering)
 
-For REAL data (the Philly / Alibaba PAI traces) and for combining real +
+For REAL data (the Alibaba PAI trace) and for combining real +
 synthetic into the final jobs.csv, see real_data.py -- kept separate since
 that file depends on an external download this one doesn't need.
 
@@ -97,7 +97,7 @@ def generate_edge_case_jobs(n_jobs: int, seed: int = SEED) -> pd.DataFrame:
     """Guaranteed tight-deadline / high-priority jobs, forced regardless of
     seed (unlike generate_jobs()'s random slack_factor, which only
     sometimes produces a near-infeasible job by chance). Used by
-    real_data.py to top up the real Philly/Alibaba-sourced rows."""
+    real_data.py to top up the real Alibaba-sourced rows."""
     rng = np.random.default_rng(seed + 1)  # different stream than generate_jobs()
 
     arrival_time = np.round(rng.uniform(0, 18, size=n_jobs), 1)
