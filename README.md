@@ -64,7 +64,7 @@ Same shared 32-GPU pool, same job queue, for every policy:
 | FCFS | 86.3% | $627.52 | 125 | 53 | 62.5% |
 | Always Max | 86.3% | $627.52 | 125 | 53 | 62.5% |
 | Priority | 86.1% | $626.11 | 141 | 38 | 70.5% |
-| **RL Agent** | **83.2%** | **$603.22** | **161** | **18** | **80.5%** |
+| **RL Agent** | **81.0%** | **$583.62** | **174** | **6** | **87.0%** |
 
 
 > **+10.0 points deadline success rate over the best baseline (Priority), at $22.89 lower cost and lower utilization.**
