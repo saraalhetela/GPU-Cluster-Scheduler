@@ -187,7 +187,7 @@ def trace_agent_shared_pool(model, jobs, prices, device="cpu", total_gpus=None, 
 
 
 def main(checkpoint_path=None):
-    checkpoint_path = checkpoint_path or f"{config.CHECKPOINT_DIR}/dqn_final.pt"
+    checkpoint_path = checkpoint_path or f"{config.CHECKPOINT_DIR}/ckpt_best.pt"
 
     print(f"Loading checkpoint: {checkpoint_path}")
     model = DuelingMLP(config.STATE_DIM, config.ACTION_DIM)
