@@ -2,8 +2,6 @@
 real_data.py
 
 CLI:
-    python real_data.py parse-philly philly-traces/cluster_job_log.json
-        -> data/jobs_real_philly.csv
     python real_data.py parse-alibaba pai_job_table.csv pai_task_table.csv
         -> data/jobs_real_alibaba.csv
     python real_data.py build
