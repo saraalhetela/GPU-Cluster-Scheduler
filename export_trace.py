@@ -25,7 +25,7 @@ import config
 import data_preprocessing as dp
 from environment import ACTIONS
 from model import DuelingMLP
-from evaluate import _build_state
+from evaluate import _build_state, PRIORITY_RANK 
 
 PRIORITY_RANK = {"High": 0, "Medium": 1, "Low": 2}
 
