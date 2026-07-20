@@ -180,4 +180,6 @@ def _quick_val(model, val_jobs, prices, val_demand, device, max_episodes=20):
             total += reward
 
     model.train()
-    return total / episodes if episodes else 0.0
+    print(f"Best checkpoint: step {best_step} (val reward={best_val_reward:.2f}) "
+          f"-> {CHECKPOINT_DIR}/ckpt_best.pt")
+    return agent, train_rewards, val_rewards
