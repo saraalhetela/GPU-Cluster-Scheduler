@@ -6,6 +6,7 @@ DEVICE = "cpu"  # small MLP + short episodes; no GPU needed to train this agent
 # --- data paths ---
 PRICE_PATH = "./data/gpu_prices.csv"
 JOBS_PATH = "./data/jobs.csv"
+OUTPUTS_DIR = "./outputs"
 CHECKPOINT_DIR = "./checkpoints"
 OUTPUTS_DIR = "./outputs"  # results.json / trace.json -- run artifacts, not inputs
 
