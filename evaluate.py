@@ -1,13 +1,11 @@
 """
-evaluate.py -- GPU cluster scheduler version.
-
-Runs the trained agent job-by-job through GPUClusterEnv(test=True) (one
-episode per job, deterministic order), the same per-episode unit
-GPUClusterEnv already works in -- NOT baseline.py's whole-queue shared-pool
-simulation, those are structurally different and not comparable at the
-per-step level. What IS comparable is the aggregate: how many jobs did
-the agent finish, how many missed deadline, at what cost -- lined up
-against baseline.py's FCFS/Always-Max/Priority table.
+evaluate.py -- runs the trained agent job-by-job through
+GPUClusterEnv(test=True) (one episode per job, deterministic order) --
+the per-episode unit GPUClusterEnv already works in, not baseline.py's
+whole-queue shared-pool simulation. Those are structurally different and
+not comparable at the per-step level; what is comparable is the aggregate:
+how many jobs did the agent finish, how many missed deadline, at what
+cost -- lined up against baseline.py's FCFS/Always-Max/Priority table.
 
 Usage:
     python evaluate.py [checkpoint_path]
@@ -25,17 +23,19 @@ from environment import GPUClusterEnv, ACTIONS
 from model import DuelingMLP
 from baseline import run_all_baselines, compute_hourly_demand, PRIORITY_RANK
 
+
 def evaluate_agent(model, jobs, prices, demand_curve=None, device="cpu"):
     """
     One episode per job (deterministic test-mode order). Greedy policy
     (argmax, no exploration) -- this is evaluation, not training.
 
     demand_curve, if given, is used with enforce_capacity=False: the
-    model sees a REAL cluster_utilization reading (matching what it was
-    trained on) but this job's own allocation is NOT capacity-limited --
-    that's what makes this "isolated": what would this job's outcome be
+    model sees a real cluster_utilization reading (matching what it was
+    trained on) but this job's own allocation is not capacity-limited --
+    that's what makes this "isolated": what this job's outcome would be
     if it alone had priority, while still showing the model realistic
-    inputs rather than the old synthetic curve it was never trained on.
+    inputs rather than the fallback synthetic curve it was never trained
+    on.
 
     Returns a dict shaped like baseline.py's rows, plus total_reward, so
     the two are directly comparable in one table.
@@ -61,8 +61,7 @@ def evaluate_agent(model, jobs, prices, demand_curve=None, device="cpu"):
             state_t = torch.from_numpy(state).unsqueeze(0).float().to(device)
             with torch.no_grad():
                 # Raw action index in, straight to step() -- GPUClusterEnv
-                # resolves it internally. Never pre-resolve via ACTIONS
-                # here, same rule as train.py.
+                # resolves it internally.
                 action = model(state_t).argmax(dim=1).item()
             state, reward, done, info = env.step(action)
             ep_reward += reward
@@ -113,20 +112,19 @@ def _build_state(hour, price, job_progress, deadline_remaining, gpu_hours_remain
 
 def evaluate_agent_shared_pool(model, jobs, prices, device="cpu", total_gpus=None, episode_length=None):
     """
-    THIS is the number directly comparable to baseline.py -- same
-    hour-by-hour, shared-capacity engine, except each active job's
-    allocation this hour is whatever the trained agent's greedy policy
-    requests for that job's own state, instead of a fixed heuristic.
+    The number directly comparable to baseline.py -- the same hour-by-hour,
+    shared-capacity engine, except each active job's allocation this hour
+    is whatever the trained agent's greedy policy requests for that job's
+    own state, instead of a fixed heuristic.
 
-    Caveat that belongs in the README/pitch, not buried here: the agent
-    never saw multi-job contention during training (GPUClusterEnv is
-    one-job-per-episode by design). When total requested GPUs exceed the
-    pool, this function arbitrates earliest-deadline-first -- that rule
-    is NOT something the agent learned, it's a necessary bolt-on to run a
-    single-job-trained policy in a multi-job setting. True joint/
+    Caveat that belongs in the README, not just here: the agent never saw
+    multi-job contention during training (GPUClusterEnv is one-job-per-
+    episode by design). When total requested GPUs exceed the pool, this
+    function arbitrates by priority then deadline -- that rule is not
+    something the agent learned, it's a necessary bolt-on to run a
+    single-job-trained policy in a multi-job setting. True joint /
     multi-agent scheduling (the agent itself learning to yield GPUs to a
-    more urgent job) is out of scope, same as the original design's own
-    stretch-goal note.
+    more urgent job) is out of scope.
     """
     model.eval()
     total_gpus = total_gpus or config.TOTAL_CLUSTER_GPUS
@@ -164,7 +162,7 @@ def evaluate_agent_shared_pool(model, jobs, prices, device="cpu", total_gpus=Non
 
         # Ask the agent what each eligible job wants this hour (batched
         # through the network in one forward pass). cluster_utilization
-        # here is computed LIVE from the exact jobs competing this hour --
+        # here is computed live from the exact jobs competing this hour --
         # more precise than train.py's precomputed worst-case curve, since
         # this function already has to enumerate eligible_ids anyway.
         total_eligible_demand = sum(state[jid]["max_gpus"] for jid in eligible_ids)
@@ -189,11 +187,9 @@ def evaluate_agent_shared_pool(model, jobs, prices, device="cpu", total_gpus=Non
             s = state[jid]
             requests[jid] = min(ACTIONS[a], s["max_gpus"], s["remaining"])
 
-        # Capacity arbitration -- priority first, deadline as tiebreak within
-        # a priority tier (matches baseline.py's "priority" policy ordering,
-        # so the agent is now arbitrated the same way that baseline is,
-        # instead of a plain earliest-deadline-first rule that ignored
-        # priority entirely).
+        # Capacity arbitration -- priority first, deadline as tiebreak
+        # within a priority tier (matches baseline.py's "priority" policy
+        # ordering).
         order = sorted(eligible_ids, key=lambda jid: (PRIORITY_RANK[state[jid]["priority"]], state[jid]["deadline"]))
 
         gpus_left = total_gpus
@@ -258,9 +254,9 @@ def main(checkpoint_path=None):
           f"${shared_row['total_cost'] - best_baseline['total_cost']:+.2f} cost delta")
     print("=" * 78)
 
-    print("\nRunning isolated per-job evaluation (diagnostic only -- NOT "
+    print("\nRunning isolated per-job evaluation (diagnostic only -- not "
           "comparable to the table above, no shared-capacity constraint, "
-          "don't put this number in the pitch)...")
+          "exclude from the pitch)...")
     full_demand = compute_hourly_demand(jobs)
     isolated_row, per_job = evaluate_agent(model, jobs, prices, demand_curve=full_demand)
     print(f"  isolated: cost={isolated_row['total_cost']}, "
