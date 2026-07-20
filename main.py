@@ -1,14 +1,6 @@
 """
 main.py -- GPU cluster scheduler, single entry point.
 
-Ties together what run_training.py and evaluate.py currently do as two
-separate manual steps into the "one command produces the full result"
-deliverable called for in the timeline doc's immediate next steps:
-
-    load data -> split for training -> train DuelingMLP -> compare against
-    FCFS/Always-Max/Priority on the full shared-32-GPU-pool simulation ->
-    save results.json
-
 Usage:
     python main.py
 """
@@ -104,10 +96,6 @@ def main():
           f"-- inflated vs. the headline number above, ignore for reporting")
 
     # --- results.json -----------------------------------------------------
-    # Per-policy fields as specified in the timeline doc: gpu_utilization_pct,
-    # total_cost, jobs_completed, deadlines_missed, deadline_success_rate_pct
-    # for each baseline plus rl_agent_shared_pool -- NOT alpha/win_rate,
-    # those were stock-trading leftovers from two pivots ago.
     policies = {row["policy"]: row for row in baseline_df.to_dict(orient="records")}
     policies[shared_row["policy"]] = shared_row
 
@@ -131,8 +119,6 @@ def main():
     print("\nResults saved to results.json")
 
     # --- trace.json for the dashboard demo --------------------------------
-    # Reuses export_trace.py's functions directly (not a reimplementation)
-    # so this is guaranteed to match `python export_trace.py` run standalone.
     print("\nGenerating hour-by-hour trace for the dashboard demo...")
     priority_trace = trace_priority(full_jobs, prices)
     agent_trace = trace_agent_shared_pool(trained_model, full_jobs, prices, device=config.DEVICE)
