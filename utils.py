@@ -1,17 +1,17 @@
-# utils.py
+# utils.py -- plotting helpers for training diagnostics
 import os
 import matplotlib.pyplot as plt
 
 
-def plot_profits(profits, title="Cumulative Reward Over Time", filename="profits.png"):
-    """Plot and save a cumulative reward curve."""
+def plot_profits(profits, title="Training Episode Rewards", filename="profits.png"):
+    """Plot and save a per-episode training reward curve."""
     os.makedirs("plots", exist_ok=True)
     save_path = os.path.join("plots", filename)
     plt.figure(figsize=(10, 5))
     plt.plot(profits)
     plt.title(title)
-    plt.xlabel("Step")
-    plt.ylabel("Cumulative Reward")
+    plt.xlabel("Episode")
+    plt.ylabel("Episode Reward")
     plt.grid(True)
     plt.tight_layout()
     plt.savefig(save_path, dpi=300)
