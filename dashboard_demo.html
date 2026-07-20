@@ -5,39 +5,49 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GPU Cluster Scheduler — Live Demo</title>
 <style>
-  :root {
-    --bg: #002845;
-    --bg-2: #001c33;
-    --panel: #0F3D63;
-    --panel-2: #123A5C;
-    --stroke: #1E4A6E;
-    --teal: #00CFCC;
-    --teal-deep: #006462;
-    --pink: #F64975;
-    --pink-deep: #B20934;
-    --orange: #FC723F;
-    --coral: #FF9973;
-    --blue: #1A5E8F;
-    --white: #FFFFFF;
-    --muted: #9FB3C4;
-    --font-head: Cambria, Georgia, "Times New Roman", serif;
-    --font-body: Calibri, "Segoe UI", Arial, sans-serif;
-  }
+:root {
+  --bg: #F7F5EF;
+  --bg-2: #FFFFFF;
+  --panel: #FFFFFF;
+  --panel-2: #F1EEE6;
+  --stroke: #E4DFD3;
+
+  --teal: #00A6A3;
+  --teal-deep: #008784;
+
+  --pink: #F64975;
+  --pink-deep: #B20934;
+
+  --orange: #FC723F;
+  --coral: #FF7A55;
+
+  --blue: #002845;
+
+  --white: #FFFFFF;
+  --muted: #7E8A96;
+
+  --font-head: Cambria, Georgia, "Times New Roman", serif;
+  --font-body: Calibri, "Segoe UI", Arial, sans-serif;
+}
 
   * { box-sizing: border-box; }
 
-  html, body {
-    margin: 0; padding: 0;
-    background: var(--bg);
-    color: var(--white);
-    font-family: var(--font-body);
-    min-height: 100vh;
-  }
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+
+  background: var(--bg);
+  color: var(--blue);
+
+  font-family: var(--font-body);
+}
 
   body {
     background-image:
-      radial-gradient(circle at 92% 0%, rgba(0,207,204,0.16), transparent 45%),
-      radial-gradient(circle at 4% 90%, rgba(246,73,117,0.12), transparent 45%);
+      radial-gradient(circle at 96% 0%, rgba(0,166,163,0.10), transparent 42%),
+      radial-gradient(circle at 0% 100%, rgba(246,73,117,0.08), transparent 42%);
     background-repeat: no-repeat;
   }
 
@@ -56,23 +66,30 @@
   .subtitle { color: var(--muted); font-size: 14.5px; margin: 0; max-width: 720px; line-height: 1.5; }
 
   /* ---------- Controls ---------- */
-  .controls {
-    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-    background: var(--panel); border: 1px solid var(--stroke); border-radius: 10px;
-    padding: 14px 18px; margin: 22px 0 26px;
+  .controls{
+    display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+    background:var(--panel); border:1px solid var(--stroke); border-radius:14px;
+    padding:18px 22px; margin:24px 0 28px; box-shadow: 0 6px 20px rgba(0,0,0,.04);
   }
-  .btn {
-    font-family: var(--font-body); font-weight: 700; font-size: 13.5px;
-    color: var(--bg); background: var(--teal); border: none; border-radius: 8px;
-    padding: 10px 18px; cursor: pointer; letter-spacing: 0.3px;
-    transition: transform 0.12s ease, opacity 0.12s ease;
+  
+  .btn{
+    font-family:var(--font-body); font-weight:700; font-size:13px;
+    color:white; background:var(--teal); border:none; border-radius:10px;
+    padding:11px 20px; cursor:pointer;
+    transition:.25s;
+   }
+
+  .btn:hover{ 
+    transform:translateY(-1px); box-shadow:0 8px 18px rgba(0,166,163,.25); 
   }
-  .btn:hover { opacity: 0.88; }
+
   .btn:active { transform: scale(0.97); }
-  .btn.secondary {
-    background: transparent; color: var(--muted); border: 1px solid var(--stroke);
+
+  .btn.secondary{
+    background:white; color:var(--blue); border:1px solid var(--stroke);
   }
-  .btn.secondary:hover { color: var(--white); border-color: var(--muted); opacity: 1; }
+
+  .btn.secondary:hover{ background:#faf8f3; }
 
   .scrubber-block { flex: 1; min-width: 260px; display: flex; align-items: center; gap: 12px; }
   .hour-readout {
@@ -102,14 +119,15 @@
   }
 
   /* ---------- Callout ---------- */
-  .callout {
-    display: flex; align-items: center; gap: 14px;
-    background: linear-gradient(90deg, var(--pink-deep), var(--panel) 70%);
-    border: 1px solid var(--pink); border-radius: 10px;
-    padding: 14px 20px; margin-bottom: 26px;
-    font-size: 14.5px; opacity: 0; transform: translateY(-4px);
-    transition: opacity 0.35s ease, transform 0.35s ease;
+  .callout{
+    display:flex; align-items:center; gap:14px;
+    background: linear-gradient(90deg, var(--pink), var(--orange) );
+    color:white; border:none; border-radius:14px;
+    padding:18px 22px; margin-bottom:28px;
+    box-shadow: 0 8px 20px rgba(246,73,117,.25);
+    transition:.35s;
   }
+  
   .callout.show { opacity: 1; transform: translateY(0); }
   .callout .lead { font-family: var(--font-head); font-weight: 700; font-size: 19px; color: var(--white); }
   .callout .lead b { color: var(--teal); }
@@ -118,10 +136,11 @@
   .race { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-bottom: 26px; }
   @media (max-width: 860px) { .race { grid-template-columns: 1fr; } }
 
-  .panel {
-    background: var(--panel); border: 1px solid var(--stroke); border-radius: 12px;
-    padding: 20px 22px 22px; position: relative; overflow: hidden;
-  }
+  .panel{
+    background:white; border:1px solid var(--stroke); border-radius:18px;
+    padding:24px; position:relative; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,.05);
+}
+  
   .panel::before {
     content: ""; position: absolute; top: 0; left: 0; right: 0; height: 4px;
   }
@@ -153,9 +172,9 @@
   .gpu-caption b { color: var(--white); }
 
   .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-  .stat {
-    background: var(--bg-2); border: 1px solid var(--stroke); border-radius: 8px;
-    padding: 10px 6px; text-align: center;
+  .stat{
+    background:var(--panel-2); border:1px solid var(--stroke); border-radius:12px;
+    padding:14px 10px; text-align:center;
   }
   .stat .val { font-family: var(--font-head); font-weight: 700; font-size: 19px; display: block; }
   .stat .lbl { font-size: 9.5px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
@@ -163,10 +182,11 @@
   .panel.baseline .stat .val { color: var(--coral); }
 
   /* ---------- Chart ---------- */
-  .chart-card {
-    background: var(--panel); border: 1px solid var(--stroke); border-radius: 12px;
-    padding: 20px 22px; margin-bottom: 20px;
+  .chart-card{
+    background:white; border:1px solid var(--stroke); border-radius:18px;
+    padding:24px; margin-bottom:22px; box-shadow: 0 8px 24px rgba(0,0,0,.05);
   }
+  
   .chart-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
   .chart-title { font-family: var(--font-head); font-weight: 700; font-size: 15.5px; }
   .legend { display: flex; gap: 18px; font-size: 12px; color: var(--muted); }
