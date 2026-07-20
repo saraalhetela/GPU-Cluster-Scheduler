@@ -53,9 +53,6 @@ def run_random_policy_episode(env, rng) -> dict:
 
 
 def test_random_policy_many_episodes():
-    """Runs under the real demand curve (the same setup train.py uses),
-    so this test exercises the configuration the agent is actually
-    trained under, not an easier unconstrained version of it."""
     prices = dp.load_price_data()
     jobs = dp.load_job_data()
     demand = compute_hourly_demand(jobs)
@@ -71,17 +68,9 @@ def test_random_policy_many_episodes():
 
 
 def test_capacity_enforcement_limits_allocation():
-    """When the demand curve says the cluster is fully saturated by other
-    jobs, this job's own allocation should be capped well below its
-    requested amount -- this is the entire point of training under real
-    scarcity instead of a synthetic-only utilization feature. If this
-    fails, GPUClusterEnv is giving jobs whatever they ask for regardless
-    of contention."""
     prices = dp.load_price_data()
     jobs = dp.load_job_data()
 
-    # Force worst-case demand far above capacity every hour, so headroom
-    # for THIS job should be ~0 regardless of its own request.
     saturated_curve = np.full(config.EPISODE_LENGTH, 10_000.0)
     env = GPUClusterEnv(jobs=jobs, prices=prices, demand_curve=saturated_curve, test=True)
 
@@ -96,8 +85,6 @@ def test_capacity_enforcement_limits_allocation():
     print(f"[capacity enforcement] fully-saturated hour -> "
           f"gpus_allocated={info['gpus_allocated']} (requested {info['requested_gpus']}, expected ~0)")
 
-    # Sanity check the other direction: an empty cluster (no one else
-    # competing) should NOT limit this job below its own max_gpus/request.
     empty_curve = np.zeros(config.EPISODE_LENGTH)
     env2 = GPUClusterEnv(jobs=jobs, prices=prices, demand_curve=empty_curve, test=True)
     env2.reset()
@@ -111,17 +98,10 @@ def test_capacity_enforcement_limits_allocation():
 
 
 def test_zero_allocation_always_penalized_or_neutral():
-    """Allocating 0 GPUs every step should never beat allocating GPUs on a
-    job with plenty of slack -- if this fails, the idle penalty or the
-    progress-shaping term is miscalibrated."""
     prices = dp.load_price_data()
     jobs = dp.load_job_data()
     env = GPUClusterEnv(jobs=jobs, prices=prices, test=True)
-
-    # test=True mode auto-advances _test_idx on every reset(), so without
-    # resetting the counter back the two blocks below would run on two
-    # DIFFERENT jobs, not the same one twice -- invalidating the
-    # comparison this test exists to make.
+    
     env._test_idx = 0
     env.reset()
     zero_reward = 0.0
@@ -147,8 +127,6 @@ def test_zero_allocation_always_penalized_or_neutral():
 
 
 def test_deterministic_reset_in_test_mode():
-    """test=True should cycle through jobs in order, not sample randomly --
-    train.py relies on this for reproducible evaluation."""
     prices = dp.load_price_data()
     jobs = dp.load_job_data()
     env = GPUClusterEnv(jobs=jobs, prices=prices, test=True)
