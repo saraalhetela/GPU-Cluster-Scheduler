@@ -1,8 +1,8 @@
 """
-export_trace.py -- records a REAL hour-by-hour trace of the shared-pool
+export_trace.py -- records a real hour-by-hour trace of the shared-pool
 simulation, for the dashboard demo.
 
-This does NOT reimplement new simulation logic -- it mirrors
+This does not reimplement new simulation logic -- it mirrors
 baseline.py's simulate_policy("priority") and evaluate.py's
 evaluate_agent_shared_pool() exactly (same eligibility rule, same
 arbitration order, same everything), it just additionally records a
@@ -15,6 +15,7 @@ Usage:
     -> trace.json
 """
 import json
+import os
 import sys
 
 import numpy as np
@@ -24,7 +25,7 @@ import config
 import data_preprocessing as dp
 from environment import ACTIONS
 from model import DuelingMLP
-from evaluate import _build_state, PRIORITY_RANK 
+from evaluate import _build_state
 
 PRIORITY_RANK = {"High": 0, "Medium": 1, "Low": 2}
 
@@ -211,15 +212,17 @@ def main(checkpoint_path=None):
         "rl_agent_shared_pool": agent_trace,
     }
 
-    with open("trace.json", "w") as f:
+    os.makedirs(config.OUTPUTS_DIR, exist_ok=True)
+    trace_path = f"{config.OUTPUTS_DIR}/trace.json"
+    with open(trace_path, "w") as f:
         json.dump(out, f, indent=2)
 
-    print("\nSaved -> trace.json")
+    print(f"\nSaved -> {trace_path}")
     print(f"  priority final:  cost=${priority_trace[-1]['cum_cost']:.2f}  "
           f"completed={priority_trace[-1]['cum_completed']}  missed={priority_trace[-1]['cum_missed']}")
     print(f"  rl_agent final:  cost=${agent_trace[-1]['cum_cost']:.2f}  "
           f"completed={agent_trace[-1]['cum_completed']}  missed={agent_trace[-1]['cum_missed']}")
-    print("\nPaste the contents of trace.json back to Claude to build the animated demo.")
+    print(f"\nPaste the contents of {trace_path} back to Claude to build the animated demo.")
 
 
 if __name__ == "__main__":
