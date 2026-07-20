@@ -2,14 +2,6 @@
 export_trace.py -- records a REAL hour-by-hour trace of the shared-pool
 simulation, for the dashboard demo.
 
-This does NOT reimplement new simulation logic -- it mirrors
-baseline.py's simulate_policy("priority") and evaluate.py's
-evaluate_agent_shared_pool() exactly (same eligibility rule, same
-arbitration order, same everything), it just additionally records a
-per-hour snapshot instead of only returning the final aggregate. The
-dashboard animates this trace instead of jumping straight to endpoint
-numbers.
-
 Usage:
     python export_trace.py [checkpoint_path]
     -> trace.json
@@ -34,7 +26,6 @@ def _order_priority(jobs):
 
 
 def trace_priority(jobs, prices, total_gpus=None, episode_length=None):
-    """Mirrors baseline.simulate_policy(jobs, prices, "priority")."""
     total_gpus = total_gpus or config.TOTAL_CLUSTER_GPUS
     episode_length = episode_length or config.EPISODE_LENGTH
 
