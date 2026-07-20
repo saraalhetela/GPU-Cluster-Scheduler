@@ -283,7 +283,7 @@ body {
 
   <footer>
     <div class="brand">GPU CLUSTER SCHEDULER</div>
-    <div class="disclaimer">Illustrative hour-by-hour playback shaped to match the reported shared-pool run (same totals as the headline table). Point this at a real <code>trace.json</code> from <code>export_trace.py</code> to replay the literal checkpoint feed.</div>
+    <div class="disclaimer">Illustrative hour-by-hour playback shaped to match the reported shared-pool run (same totals as the headline table). Point this at a real <code>outputs/trace.json</code> from <code>export_trace.py</code> to replay the literal checkpoint feed.</div>
   </footer>
 
 </div>
@@ -435,7 +435,7 @@ body {
   speedSelect.addEventListener("change", () => { if (playing) { stopPlayback(); startPlayback(); } });
 
   // ---------- Load the real trace and only render once it's here ----------
-  fetch('trace.json?t=' + Date.now())
+  fetch('outputs/trace.json?t=' + Date.now())
     .then(r => r.json())
     .then(data => {
       const agentHours = data.rl_agent_shared_pool;
@@ -460,9 +460,9 @@ body {
       render(0);
     })
     .catch(err => {
-      console.error("Failed to load trace.json:", err);
+      console.error("Failed to load outputs/trace.json:", err);
       document.querySelector(".subtitle").textContent =
-        "Could not load trace.json -- run main.py (or export_trace.py) in this folder first, then reload this page.";
+        "Could not load outputs/trace.json -- run main.py (or export_trace.py) in this folder first, then reload this page.";
     });
 })();
 </script>
