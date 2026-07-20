@@ -1,8 +1,8 @@
 """
-test_env.py -- sanity tests for GPUClusterEnv, same role as the EV
-project's test_env.py (random-policy rollouts + invariant checks, run
-before wiring the env into train.py so bugs get caught here instead of
-showing up as a training run that silently never learns).
+test_env.py -- sanity tests for GPUClusterEnv: random-policy rollouts +
+invariant checks, run before wiring the env into train.py so bugs get
+caught here instead of showing up as a training run that silently never
+learns.
 
 Usage:
     python test_env.py
@@ -53,10 +53,9 @@ def run_random_policy_episode(env, rng) -> dict:
 
 
 def test_random_policy_many_episodes():
-    """Now runs under the REAL demand curve (same setup train.py actually
-    uses) rather than the old unconstrained default -- so this test
-    exercises the configuration the agent is actually trained under, not
-    an easier version of it."""
+    """Runs under the real demand curve (the same setup train.py uses),
+    so this test exercises the configuration the agent is actually
+    trained under, not an easier unconstrained version of it."""
     prices = dp.load_price_data()
     jobs = dp.load_job_data()
     demand = compute_hourly_demand(jobs)
@@ -75,9 +74,9 @@ def test_capacity_enforcement_limits_allocation():
     """When the demand curve says the cluster is fully saturated by other
     jobs, this job's own allocation should be capped well below its
     requested amount -- this is the entire point of training under real
-    scarcity instead of the old synthetic-only utilization feature. If
-    this fails, GPUClusterEnv silently went back to giving jobs whatever
-    they ask for regardless of contention."""
+    scarcity instead of a synthetic-only utilization feature. If this
+    fails, GPUClusterEnv is giving jobs whatever they ask for regardless
+    of contention."""
     prices = dp.load_price_data()
     jobs = dp.load_job_data()
 
@@ -119,10 +118,10 @@ def test_zero_allocation_always_penalized_or_neutral():
     jobs = dp.load_job_data()
     env = GPUClusterEnv(jobs=jobs, prices=prices, test=True)
 
-    # NOTE: test=True mode auto-advances _test_idx on every reset(), so
-    # without resetting the counter back the two blocks below would run on
-    # two DIFFERENT jobs, not the same one twice -- silently invalidating
-    # the comparison this test exists to make.
+    # test=True mode auto-advances _test_idx on every reset(), so without
+    # resetting the counter back the two blocks below would run on two
+    # DIFFERENT jobs, not the same one twice -- invalidating the
+    # comparison this test exists to make.
     env._test_idx = 0
     env.reset()
     zero_reward = 0.0
