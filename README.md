@@ -140,8 +140,7 @@ multi-agent scheduling is out of scope for this project.
 
 ```
 .
-├── data/                     jobs.csv + gpu_prices.csv -- committed, ready to run against
-├── outputs/                  results.json + trace.json -- run artifacts, written by main.py
+├── data/                     jobs.csv + gpu_prices.csv -- committed, ready to run against               
 ├── data_generation.py        synthetic job/price generation
 ├── real_data.py               real (Alibaba PAI) trace parsing + hybrid build
 ├── data_preprocessing.py      loads data/jobs.csv / data/gpu_prices.csv for the env
@@ -153,6 +152,8 @@ multi-agent scheduling is out of scope for this project.
 ├── export_trace.py            hour-by-hour trace export for the dashboard demo -> outputs/trace.json
 ├── main.py                    full pipeline: train -> evaluate -> outputs/results.json
 ├── test_env.py                environment unit tests
+├── results.json              
+├── trace.json        
 └── dashboard_demo.html        animated hour-by-hour dashboard (reads outputs/trace.json)
 ```
 
