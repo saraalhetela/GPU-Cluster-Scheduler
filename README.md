@@ -67,7 +67,7 @@ Same shared 32-GPU pool, same job queue, for every policy:
 | **RL Agent** | **81.0%** | **$583.62** | **174** | **6** | **87.0%** |
 
 
-> **+10.0 points deadline success rate over the best baseline (Priority), at $22.89 lower cost and lower utilization.**
+> **+17.0 points deadline success rate over the best baseline (Priority), at $42.49 lower cost and lower utilization.**
 >
 > The agent isn't just
 completing more jobs — it's doing so more cheaply and with less GPU time
