@@ -20,9 +20,6 @@ def train_agent(model, train_jobs, val_jobs, prices, device="cpu"):
     optimizer = torch.optim.RMSprop(agent.parameters(), lr=LEARNING_RATE)
     loss_fn   = torch.nn.SmoothL1Loss()
 
-    # Replay buffer stores numpy arrays, NOT GPU tensors (cheap on RAM,
-    # moved to device only at sample time). Unchanged from the stock/EV
-    # version -- GPUClusterEnv's flat 7-dim state doesn't change this.
     replay     = deque(maxlen=MEMORY_SIZE)
     n_buf      = deque(maxlen=N_STEP)
     epsilon    = EPSILON_START
@@ -33,23 +30,12 @@ def train_agent(model, train_jobs, val_jobs, prices, device="cpu"):
     best_val_reward = float("-inf")
     best_step = 0
 
-    # One env instance for the whole training run -- GPUClusterEnv handles
-    # per-episode job sampling internally via reset(), unlike the stock
-    # TradingEnv pattern of recreating the env every episode.
-    #
-    # demand_curve gives the agent a REAL scarcity signal (see
-    # baseline.compute_hourly_demand) instead of the old synthetic sine
-    # curve, and actually caps this episode's allocation by remaining
-    # cluster headroom -- train_jobs/val_jobs each get their own curve
-    # since they're different subsets of the queue with different
-    # contention patterns.
     train_demand = compute_hourly_demand(train_jobs, episode_length=EPISODE_LENGTH)
     val_demand   = compute_hourly_demand(val_jobs, episode_length=EPISODE_LENGTH)
     
     env = GPUClusterEnv(jobs=train_jobs, prices=prices, demand_curve=train_demand, test=False)
 
     def flush_n(buf):
-        """Compute N-step return and push numpy transition to replay."""
         if not buf:
             return
         s0, a0    = buf[0][0], buf[0][1]
@@ -80,11 +66,6 @@ def train_agent(model, train_jobs, val_jobs, prices, device="cpu"):
                 with torch.no_grad():
                     action = agent(state_t).argmax(dim=1).item()
 
-            # IMPORTANT: env.step() takes the raw action INDEX (0..ACTION_DIM-1)
-            # and resolves it to a GPU count internally via its own ACTIONS
-            # dict. Do NOT resolve it here and pass e.g. environment.ACTIONS[action]
-            # in -- that double-maps the index through ACTIONS a second time
-            # inside step() and silently allocates the wrong number of GPUs.
             next_state, reward, done, info = env.step(action)
 
             n_buf.append((state, action, reward, next_state, done))
@@ -130,10 +111,6 @@ def train_agent(model, train_jobs, val_jobs, prices, device="cpu"):
                 EPSILON_START - (EPSILON_START - EPSILON_END) * step_count / MAX_STEPS
             )
 
-            # Fixed checkpoint/val cadence: checked every step against a
-            # running counter instead of `step_count % N == 0` at episode
-            # boundaries only, which -- with variable-length episodes --
-            # could go the entire run without ever firing.
             if step_count - last_checkpoint >= CHECKPOINT_FREQ or step_count >= MAX_STEPS:
                 last_checkpoint = step_count
                 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
@@ -157,13 +134,6 @@ def train_agent(model, train_jobs, val_jobs, prices, device="cpu"):
 
 
 def _quick_val(model, val_jobs, prices, val_demand, device, max_episodes=20):
-    """Deterministic pass over up to `max_episodes` validation jobs, in
-    jobs.csv order (test=True cycles jobs in order, doesn't sample) --
-    averaged per-episode reward, more meaningful here than the stock
-    version's single long walk since GPUClusterEnv is episodic per job.
-    Uses the SAME real demand-curve/capacity-enforcement setup as
-    training so validation reflects what the agent was actually trained
-    under, not an easier unconstrained version of the task."""
     model.eval()
     env = GPUClusterEnv(jobs=val_jobs, prices=prices, demand_curve=val_demand, test=True)
     episodes = min(max_episodes, len(val_jobs))
