@@ -1,13 +1,9 @@
 """
 main.py -- GPU cluster scheduler, single entry point.
 
-Ties together what run_training.py and evaluate.py currently do as two
-separate manual steps into the "one command produces the full result"
-deliverable called for in the timeline doc's immediate next steps:
-
     load data -> split for training -> train DuelingMLP -> compare against
     FCFS/Always-Max/Priority on the full shared-32-GPU-pool simulation ->
-    save results.json
+    save outputs/results.json -> save outputs/trace.json -> serve the dashboard demo
 
 Usage:
     python main.py
@@ -33,9 +29,9 @@ def main():
     print("\nLoading data...")
     prices = dp.load_price_data()
     train_jobs, val_jobs = dp.load_job_data(split=True)
-    # Baseline/shared-pool evaluation need the WHOLE queue (they're a
-    # whole-queue contention simulation, not a per-job train/test split --
-    # same set baseline.py and evaluate.py's own main() already use).
+    # Baseline/shared-pool evaluation need the whole queue -- they're a
+    # whole-queue contention simulation, not a per-job train/test split
+    # like baseline.py and evaluate.py's own main() already use.
     full_jobs = dp.load_job_data()
     print(f"  {len(train_jobs)} train jobs, {len(val_jobs)} val jobs "
           f"({len(full_jobs)} total jobs used for the shared-pool evaluation)")
@@ -63,8 +59,7 @@ def main():
         trained_model.load_state_dict(torch.load(best_ckpt))
         trained_model.eval()
     else:
-        print("\n(No ckpt_best.pt found -- evaluating final-step weights. "
-              "Make sure the train.py best-checkpoint change is applied.)")
+        print("\n(No ckpt_best.pt found -- evaluating final-step weights.)")
 
     print("\nPlotting training curves...")
     utils.plot_profits(train_rewards, title="Training Episode Rewards",
@@ -91,9 +86,9 @@ def main():
           f"${cost_delta:+.2f} cost delta")
     print("=" * 78)
 
-    print("\nRunning isolated per-job evaluation (diagnostic only -- NOT "
+    print("\nRunning isolated per-job evaluation (diagnostic only -- not "
           "comparable to the table above, no shared-capacity constraint, "
-          "don't put this number in the pitch)...")
+          "exclude from the pitch)...")
     full_demand = compute_hourly_demand(full_jobs)
     isolated_row, per_job = evaluate_agent(
         trained_model, full_jobs, prices, demand_curve=full_demand, device=config.DEVICE
@@ -103,11 +98,7 @@ def main():
           f"success_rate={isolated_row['deadline_success_rate_pct']}% "
           f"-- inflated vs. the headline number above, ignore for reporting")
 
-    # --- results.json -----------------------------------------------------
-    # Per-policy fields as specified in the timeline doc: gpu_utilization_pct,
-    # total_cost, jobs_completed, deadlines_missed, deadline_success_rate_pct
-    # for each baseline plus rl_agent_shared_pool -- NOT alpha/win_rate,
-    # those were stock-trading leftovers from two pivots ago.
+    # --- outputs/results.json -------------------------------------------
     policies = {row["policy"]: row for row in baseline_df.to_dict(orient="records")}
     policies[shared_row["policy"]] = shared_row
 
@@ -121,18 +112,20 @@ def main():
         "n_jobs_evaluated": len(full_jobs),
         "isolated_diagnostic": {
             **isolated_row,
-            "note": ("NOT capacity-constrained -- inflated vs. the shared-pool "
+            "note": ("not capacity-constrained -- inflated vs. the shared-pool "
                      "number above, exclude from pitch/reporting"),
         },
     }
 
-    with open("results.json", "w") as f:
+    os.makedirs(config.OUTPUTS_DIR, exist_ok=True)
+    results_path = f"{config.OUTPUTS_DIR}/results.json"
+    with open(results_path, "w") as f:
         json.dump(results, f, indent=2)
-    print("\nResults saved to results.json")
+    print(f"\nResults saved to {results_path}")
 
-    # --- trace.json for the dashboard demo --------------------------------
-    # Reuses export_trace.py's functions directly (not a reimplementation)
-    # so this is guaranteed to match `python export_trace.py` run standalone.
+    # --- outputs/trace.json for the dashboard demo -----------------------
+    # Reuses export_trace.py's functions directly so this is guaranteed to
+    # match `python export_trace.py` run standalone.
     print("\nGenerating hour-by-hour trace for the dashboard demo...")
     priority_trace = trace_priority(full_jobs, prices)
     agent_trace = trace_agent_shared_pool(trained_model, full_jobs, prices, device=config.DEVICE)
@@ -143,17 +136,17 @@ def main():
         "priority": priority_trace,
         "rl_agent_shared_pool": agent_trace,
     }
-    with open("trace.json", "w") as f:
+    trace_path = f"{config.OUTPUTS_DIR}/trace.json"
+    with open(trace_path, "w") as f:
         json.dump(trace_out, f, indent=2)
-    print("  -> trace.json")
+    print(f"  -> {trace_path}")
 
-    # --- serve the dashboard demo -------------------------------------
     _serve_dashboard()
 
 
 def _serve_dashboard(preferred_port=8000):
     """Starts a local HTTP server (blocking) so dashboard_demo.html's
-    runtime fetch('trace.json') actually works -- opening the file
+    runtime fetch('outputs/trace.json') actually works -- opening the file
     directly via file:// blocks that fetch in most browsers. Tries
     preferred_port first, falls back to the next few ports if busy.
     Ctrl+C stops the server; training/evaluation results are already
