@@ -1,8 +1,4 @@
-"""
-data_preprocessing.py -- GPU cluster scheduler version.
-Zero reusable lines from the stock-trader OHLC-normalization version, same
-as the EV project's rewrite. Loads gpu_prices.csv / jobs.csv for the env.
-"""
+"""data_preprocessing.py -- loads gpu_prices.csv / jobs.csv for the env."""
 
 import pandas as pd
 import config
@@ -17,8 +13,7 @@ def load_price_data(path: str = config.PRICE_PATH) -> dict:
 def load_job_data(path: str = config.JOBS_PATH, split: bool = False, seed: int = 42):
     """
     Returns either the full list of job dicts, or a (train, test) tuple of
-    job-dict lists split via config.TRAIN_RATIO -- same pattern as the EV
-    project's load_fleet_data(split=...).
+    job-dict lists split via config.TRAIN_RATIO.
     """
     df = pd.read_csv(path)
     jobs = df.to_dict(orient="records")
