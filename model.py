@@ -1,9 +1,4 @@
 """model.py -- Dueling MLP Q-network for the GPU cluster scheduler.
-
-GPUClusterEnv's state is a flat 9-dim snapshot (hour sin/cos, GPU price,
-job progress, deadline remaining, GPU-hours remaining, cluster utilization,
-urgency ratio, priority rank), so a plain MLP feature extractor is used,
-with separate value and advantage heads combined the standard dueling way.
 """
 import torch
 import torch.nn as nn
