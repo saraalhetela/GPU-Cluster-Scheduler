@@ -151,9 +151,7 @@ multi-agent scheduling is out of scope for this project.
 ├── evaluate.py                shared-pool + isolated evaluation
 ├── export_trace.py            hour-by-hour trace export for the dashboard demo -> outputs/trace.json
 ├── main.py                    full pipeline: train -> evaluate -> outputs/results.json
-├── test_env.py                environment unit tests
-├── results.json              
-├── trace.json        
+├── test_env.py                environment unit tests 
 └── dashboard_demo.html        animated hour-by-hour dashboard (reads outputs/trace.json)
 ```
 
