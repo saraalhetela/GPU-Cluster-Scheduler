@@ -1,8 +1,7 @@
 # GPU Cluster Scheduler — RL Agent
 
-An RL agent that learns to schedule GPU allocation for AI training/inference
-jobs on a shared, capacity-constrained cluster, trained under a real
-scarcity signal derived from actual cluster job traces.
+> An RL agent that learns to schedule GPU allocation for AI training/inference jobs on a shared, capacity-constrained cluster, trained under a real scarcity signal derived from actual cluster job traces.
+
 
 ## Problem
 
@@ -14,6 +13,8 @@ learned sense of *when* to allocate more or less GPU to a given job based
 on remaining time, remaining work, and how contended the cluster is right
 now.
 
+---
+
 ## Solution
 
 A Dueling DQN agent (`DuelingMLP`) learns, per job, how many GPUs to
@@ -23,20 +24,25 @@ episode, under a real per-hour scarcity signal computed from the actual
 job queue (`compute_hourly_demand`), so the state it sees during training
 matches the state it sees at evaluation time.
 
+---
+
 ## Approach
 
-- **Environment**: `GPUClusterEnv` — one job per episode, 9-dim state
+### Environment  
+**`GPUClusterEnv`** — one job per episode, 9-dim state
   (hour sin/cos, GPU price, job progress, deadline remaining, GPU-hours
   remaining, cluster utilization, urgency ratio, priority rank), 5 discrete
   GPU-allocation actions (0/2/4/6/8 GPUs).
-- **Scarcity signal**: `compute_hourly_demand` — a static, cheaply
+### Scarcity signal
+**`compute_hourly_demand`** — a static, cheaply
   precomputed proxy for contention: per hour, the sum of every arrived,
   not-yet-deadlined job's `max_gpus`, assuming none finish early. This
   both feeds the state's `cluster_utilization` feature and caps the
   agent's own allocation by remaining headroom during training.
 - **Training**: N-step Double DQN, dueling value/advantage heads, replay
   buffer, target network — 30,000 steps, 170/30 train/val job split.
-- **Evaluation**: two consistent paths, both driven off the same real
+### Evaluation
+two consistent paths, both driven off the same real
   demand curve —
   1. **Shared-pool simulation** (the headline number): the *entire* job
      queue runs hour-by-hour against one real 32-GPU pool, competing
@@ -47,19 +53,23 @@ matches the state it sees at evaluation time.
      explicitly *not* comparable to the baselines and excluded from
      reporting (see results below).
 
+---
+
 ## Results
 
 Same shared 32-GPU pool, same job queue, for every policy:
 
 | Policy | Utilization | Cost | Completed | Missed | Success Rate |
-|---|---|---|---|---|---|
+|:-------|------------:|-----:|----------:|-------:|-------
 | FCFS | 86.3% | $627.52 | 125 | 53 | 62.5% |
 | Always Max | 86.3% | $627.52 | 125 | 53 | 62.5% |
 | Priority | 86.1% | $626.11 | 141 | 38 | 70.5% |
 | **RL Agent** | **83.2%** | **$603.22** | **161** | **18** | **80.5%** |
 
-**+10.0 points deadline success rate over the best baseline (Priority),
-at $22.89 *lower* cost and *lower* utilization.** The agent isn't just
+
+> **+10.0 points deadline success rate over the best baseline (Priority), at $22.89 lower cost and lower utilization.**
+>
+> The agent isn't just
 completing more jobs — it's doing so more cheaply and with less GPU time
 consumed overall, by being more selective about which jobs to serve and
 when, rather than allocating maximally whenever a slot is free.
@@ -70,13 +80,15 @@ isn't under the same shared-pool contention the baselines are evaluated
 under. It's only useful as a sanity check that the underlying policy is
 sound.)*
 
+---
+
 ## Training Diagnostics
 
 `main.py` writes two plots to `plots/` on every run:
 
 | Training episode reward | Validation reward |
 |---|---|
-| <img width="3000" height="1500" alt="train_rewards" src="https://github.com/user-attachments/assets/229c242e-d77d-449d-917a-e43d78d2103f" /> | <img width="3000" height="1500" alt="val_rewards" src="https://github.com/user-attachments/assets/f0b477e9-1b65-4c82-9cf6-14cc8c29ae9f" /> |
+|<p align="center"> <img width="3000" height="1500" alt="train_rewards" src="https://github.com/user-attachments/assets/229c242e-d77d-449d-917a-e43d78d2103f" /> | <img width="3000" height="1500" alt="val_rewards" src="https://github.com/user-attachments/assets/f0b477e9-1b65-4c82-9cf6-14cc8c29ae9f" /> |</p>
 
 Per-episode training reward is noisy by design — each episode is a single
 job with its own deadline pressure and priority, so reward swings between
@@ -87,6 +99,8 @@ band around −1.2 with occasional dips where epsilon-driven exploration or
 a batch of harder validation jobs temporarily pulls the average down —
 the best checkpoint (`ckpt_best.pt`, used for all reported results) is
 selected from this curve, not from the final training step.
+
+---
 
 ## Honesty / Scope Notes
 
@@ -120,24 +134,29 @@ arbitration is a necessary bolt-on to run a single-job-trained policy in a
 multi-job setting, not something the agent itself learned. True joint /
 multi-agent scheduling is out of scope for this project.
 
+---
+
 ## Repo Layout
 
 ```
-data/                     jobs.csv + gpu_prices.csv -- committed, ready to run against
-outputs/                  results.json + trace.json -- run artifacts, written by main.py
-data_generation.py        synthetic job/price generation
-real_data.py               real (Alibaba PAI) trace parsing + hybrid build
-data_preprocessing.py      loads data/jobs.csv / data/gpu_prices.csv for the env
-environment.py             GPUClusterEnv
-model.py                   DuelingMLP
-baseline.py                FCFS / Always-Max / Priority heuristics + compute_hourly_demand
-train.py                   DQN training loop
-evaluate.py                shared-pool + isolated evaluation
-export_trace.py            hour-by-hour trace export for the dashboard demo -> outputs/trace.json
-main.py                    full pipeline: train -> evaluate -> outputs/results.json
-test_env.py                environment unit tests
-dashboard_demo.html        animated hour-by-hour dashboard (reads outputs/trace.json)
+.
+├── data/                     jobs.csv + gpu_prices.csv -- committed, ready to run against
+├── outputs/                  results.json + trace.json -- run artifacts, written by main.py
+├── data_generation.py        synthetic job/price generation
+├── real_data.py               real (Alibaba PAI) trace parsing + hybrid build
+├── data_preprocessing.py      loads data/jobs.csv / data/gpu_prices.csv for the env
+├── environment.py             GPUClusterEnv
+├── model.py                   DuelingMLP
+├── baseline.py                FCFS / Always-Max / Priority heuristics + compute_hourly_demand
+├── train.py                   DQN training loop
+├── evaluate.py                shared-pool + isolated evaluation
+├── export_trace.py            hour-by-hour trace export for the dashboard demo -> outputs/trace.json
+├── main.py                    full pipeline: train -> evaluate -> outputs/results.json
+├── test_env.py                environment unit tests
+└── dashboard_demo.html        animated hour-by-hour dashboard (reads outputs/trace.json)
 ```
+
+---
 
 ## Data provenance
 
@@ -155,8 +174,11 @@ how `data/jobs.csv` was built, or rebuild it from a fresher trace pull,
 `real_data.py` for the full pipeline, or `data_generation.py` for the
 synthetic-only fallback).
 
+---
+
 ## Running It
 
+Clone the repository and run:
 ```
 python main.py
 ```
