@@ -1,11 +1,11 @@
 """
 baseline.py -- whole-queue heuristic comparison for the GPU cluster
-scheduler pitch.
+scheduler.
 
-This is NOT a wrapper around GPUClusterEnv. GPUClusterEnv schedules one
+This is not a wrapper around GPUClusterEnv. GPUClusterEnv schedules one
 job per episode and has no concept of a shared, capacity-limited cluster
 -- these three heuristics only differ from each other when jobs actually
-COMPETE for a fixed GPU pool, so this runs an hour-by-hour simulation of
+compete for a fixed GPU pool, so this runs an hour-by-hour simulation of
 the entire jobs.csv queue directly against config.TOTAL_CLUSTER_GPUS.
 
 Policies:
