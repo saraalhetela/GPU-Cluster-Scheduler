@@ -25,17 +25,17 @@ matches the state it sees at evaluation time.
 
 ## Approach
 
-- **Environment**: `GPUClusterEnv` — one job per episode, 7-dim state
+- **Environment**: `GPUClusterEnv` — one job per episode, 9-dim state
   (hour sin/cos, GPU price, job progress, deadline remaining, GPU-hours
-  remaining, cluster utilization), 5 discrete GPU-allocation actions
-  (0/2/4/6/8 GPUs).
+  remaining, cluster utilization, urgency ratio, priority rank), 5 discrete
+  GPU-allocation actions (0/2/4/6/8 GPUs).
 - **Scarcity signal**: `compute_hourly_demand` — a static, cheaply
   precomputed proxy for contention: per hour, the sum of every arrived,
   not-yet-deadlined job's `max_gpus`, assuming none finish early. This
   both feeds the state's `cluster_utilization` feature and caps the
   agent's own allocation by remaining headroom during training.
 - **Training**: N-step Double DQN, dueling value/advantage heads, replay
-  buffer, target network — 5,000 steps, 170/30 train/val job split.
+  buffer, target network — 30,000 steps, 170/30 train/val job split.
 - **Evaluation**: two consistent paths, both driven off the same real
   demand curve —
   1. **Shared-pool simulation** (the headline number): the *entire* job
@@ -56,19 +56,37 @@ Same shared 32-GPU pool, same job queue, for every policy:
 | FCFS | 86.3% | $627.52 | 125 | 53 | 62.5% |
 | Always Max | 86.3% | $627.52 | 125 | 53 | 62.5% |
 | Priority | 86.1% | $626.11 | 141 | 38 | 70.5% |
-| **RL Agent** | **81.7%** | **$605.43** | **157** | **22** | **78.5%** |
+| **RL Agent** | **83.2%** | **$603.22** | **161** | **18** | **80.5%** |
 
-**+8.0 points deadline success rate over the best baseline (Priority),
-at $20.68 *lower* cost and *lower* utilization.** The agent isn't just
+**+10.0 points deadline success rate over the best baseline (Priority),
+at $22.89 *lower* cost and *lower* utilization.** The agent isn't just
 completing more jobs — it's doing so more cheaply and with less GPU time
 consumed overall, by being more selective about which jobs to serve and
 when, rather than allocating maximally whenever a slot is free.
 
-*(An isolated, no-capacity-constraint diagnostic run shows 85.5% success —
+*(An isolated, no-capacity-constraint diagnostic run shows 82.5% success —
 this number is intentionally excluded from the comparison above, since it
 isn't under the same shared-pool contention the baselines are evaluated
 under. It's only useful as a sanity check that the underlying policy is
 sound.)*
+
+## Training Diagnostics
+
+`main.py` writes two plots to `plots/` on every run:
+
+| Training episode reward | Validation reward |
+|---|---|
+| ![Training episode rewards](plots/train_rewards.png) | ![Validation reward during training](plots/val_rewards.png) |
+
+Per-episode training reward is noisy by design — each episode is a single
+job with its own deadline pressure and priority, so reward swings between
+roughly +2 (an easy, comfortably-met job) and the −50 penalty cap (a large
+High-priority job that got starved of capacity). Validation reward
+(averaged over 20 held-out jobs every 1,000 steps) settles into a stable
+band around −1.2 with occasional dips where epsilon-driven exploration or
+a batch of harder validation jobs temporarily pulls the average down —
+the best checkpoint (`ckpt_best.pt`, used for all reported results) is
+selected from this curve, not from the final training step.
 
 ## Honesty / Scope Notes
 
@@ -89,8 +107,7 @@ fields — neither real-data source used (Philly, Alibaba PAI) logs an SLA
 or priority field. Deadlines are derived via a slack multiplier off each
 job's minimum feasible completion time, and priority is derived from a
 hash of a real grouping field (virtual cluster / user), bucketed Low/
-Medium/High. These are principled proxies, not ground-truth labels — say
-so if asked.
+Medium/High. These are principled proxies, not ground-truth labels.
 
 **Scarcity-training scope.** The agent learns per-job GPU allocation
 under a real, but approximate, scarcity signal — `compute_hourly_demand`
@@ -98,7 +115,7 @@ is a worst-case static proxy (assumes no job finishes early), not a live
 multi-agent simulation. The agent does not know about *other specific
 jobs* in the queue and does not learn to yield GPUs to a more urgent one.
 When multiple jobs compete for the same hour's capacity in the shared-pool
-evaluation, an earliest-deadline-first rule arbitrates between them — this
+evaluation, a priority-then-deadline rule arbitrates between them — this
 arbitration is a necessary bolt-on to run a single-job-trained policy in a
 multi-job setting, not something the agent itself learned. True joint /
 multi-agent scheduling is out of scope for this project.
@@ -106,17 +123,37 @@ multi-agent scheduling is out of scope for this project.
 ## Repo Layout
 
 ```
-data_generation.py       synthetic job/price generation
-real_data.py              real (Philly/Alibaba) trace parsing + hybrid build
-data_preprocessing.py     loads jobs.csv / gpu_prices.csv for the env
-environment.py            GPUClusterEnv
-model.py                  DuelingMLP
-baseline.py               FCFS / Always-Max / Priority heuristics + compute_hourly_demand
-train.py                  DQN training loop
-evaluate.py               shared-pool + isolated evaluation
-main.py                   full pipeline: train -> evaluate -> results.json
-test_env.py               environment unit tests
+data/                     jobs.csv + gpu_prices.csv -- committed, ready to run against
+outputs/                  results.json + trace.json -- run artifacts, written by main.py
+data_generation.py        synthetic job/price generation
+real_data.py               real (Philly/Alibaba) trace parsing + hybrid build
+data_preprocessing.py      loads data/jobs.csv / data/gpu_prices.csv for the env
+environment.py             GPUClusterEnv
+model.py                   DuelingMLP
+baseline.py                FCFS / Always-Max / Priority heuristics + compute_hourly_demand
+train.py                   DQN training loop
+evaluate.py                shared-pool + isolated evaluation
+export_trace.py            hour-by-hour trace export for the dashboard demo -> outputs/trace.json
+main.py                    full pipeline: train -> evaluate -> outputs/results.json
+test_env.py                environment unit tests
+dashboard_demo.html        animated hour-by-hour dashboard (reads outputs/trace.json)
 ```
+
+## Data provenance
+
+`data/jobs.csv` (200 rows, ~20 KB) and `data/gpu_prices.csv` are committed
+directly so the repo runs out of the box -- clone it, `python main.py`,
+done. They're fully derived, small, and don't carry the raw trace data's
+own licensing/hosting concerns.
+
+The raw traces themselves (Philly's `cluster_job_log.json`, Alibaba's
+`pai_job_table.csv` / `pai_task_table.csv`) are *not* committed -- they're
+large external downloads from their own hosts. If you want to see exactly
+how `data/jobs.csv` was built, or rebuild it from a fresher trace pull,
+`real_data.py`'s module docstring has the download commands and
+`python real_data.py build` reproduces the hybrid file end to end (see
+`real_data.py` for the full pipeline, or `data_generation.py` for the
+synthetic-only fallback).
 
 ## Running It
 
@@ -125,5 +162,6 @@ python main.py
 ```
 
 Trains from scratch on `data/jobs.csv`, evaluates against all three
-baselines on the shared 32-GPU pool, and writes `results.json` +
-training/validation plots to `plots/`.
+baselines on the shared 32-GPU pool, writes `outputs/results.json` +
+`outputs/trace.json`, and serves `dashboard_demo.html` locally so the run
+can be watched hour by hour.
